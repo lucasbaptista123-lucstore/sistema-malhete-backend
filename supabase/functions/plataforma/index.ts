@@ -3,8 +3,9 @@
 //   assinar    { loja_id, ciclo: mensal|anual, forma: PIX|BOLETO }   Tesoureiro (tesouraria.editar), mesmo com a Loja travada
 //   faturas    { loja_id }                           relê as cobranças no Asaas (Venerável ou Tesoureiro)
 //   cancelar   { loja_id, motivo }                   Venerável (loja.config); acesso segue até o fim do período pago
+//   (dono) aplicar_regua {} · fatura_recebida { asaas_id, data? } · fatura_cancelar { asaas_id }
 import { admin, asaas, CORS, Falha, resposta, SUPABASE_URL, usuarioDe } from "../_shared/asaas.ts";
-import { credPlataforma, EVENTOS_ASSINATURA, sincronizarFaturas } from "../_shared/plataforma.ts";
+import { aplicarRegua, credPlataforma, espelharFatura, EVENTOS_ASSINATURA, sincronizarFaturas } from "../_shared/plataforma.ts";
 
 const hojeBr = () => new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
 const somaDias = (iso: string, d: number) => new Date(new Date(iso + "T12:00:00Z").getTime() + d * 864e5).toISOString().slice(0, 10);
@@ -48,6 +49,31 @@ Deno.serve(async (req) => {
       return resposta({ ok: true, ambiente, conta: conta?.name ?? conta?.companyName ?? null, aviso });
     }
 
+    if (["aplicar_regua", "fatura_recebida", "fatura_cancelar"].includes(corpo.acao)) {
+      const { data: dono } = await usuario.rpc("eh_admin_plataforma");
+      if (dono !== true) throw new Falha("Acesso restrito.", 403);
+      const c = await credPlataforma();
+      if (corpo.acao === "aplicar_regua") {
+        const { data: cls } = await admin.rpc("plataforma_clientes_asaas");
+        let ok = 0;
+        const erros: string[] = [];
+        for (const x of (cls ?? []) as { loja_id: string; cliente: string }[]) {
+          try { await aplicarRegua(c, x.cliente); ok++; } catch (e) { erros.push(e instanceof Error ? e.message : "erro"); }
+        }
+        return resposta({ ok: true, aplicadas: ok, erros });
+      }
+      const id = String(corpo.asaas_id ?? "");
+      if (!/^pay_\w+$/.test(id)) throw new Falha("Fatura inválida.");
+      if (corpo.acao === "fatura_recebida") {
+        const pg = await asaas(c, `/payments/${id}`);
+        await asaas(c, `/payments/${id}/receiveInCash`, { method: "POST", body: { paymentDate: corpo.data || hojeBr(), value: pg.value, notifyCustomer: false } });
+      } else {
+        await asaas(c, `/payments/${id}`, { method: "DELETE" });
+      }
+      const pg = await asaas(c, `/payments/${id}`);
+      return resposta({ ok: true, resultado: await espelharFatura(pg, corpo.acao === "fatura_cancelar" ? "PAYMENT_DELETED" : undefined) });
+    }
+
     const loja = String(corpo.loja_id ?? "");
     if (!/^[0-9a-f-]{36}$/.test(loja)) throw new Falha("Loja inválida.");
     const { data: eu, error: eEu } = await usuario.rpc("minha_assinatura", { p_loja: loja });
@@ -78,6 +104,7 @@ Deno.serve(async (req) => {
           email: u.user?.email, mobilePhone: ir?.telefone ?? undefined, externalReference: loja,
         } });
         cliente = cl.id as string;
+        await aplicarRegua(c, cliente).catch((e) => console.error("régua", e));
       }
       const hoje = hojeBr();
       const inicio = a.status === "teste" && a.teste_ate && a.teste_ate > hoje ? a.teste_ate
