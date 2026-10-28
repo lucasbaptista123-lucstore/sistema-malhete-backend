@@ -3,6 +3,8 @@
 //   assinar    { loja_id, ciclo: mensal|anual, forma: PIX|BOLETO }   Tesoureiro (tesouraria.editar), mesmo com a Loja travada
 //   faturas    { loja_id }                           relê as cobranças no Asaas (Venerável ou Tesoureiro)
 //   cancelar   { loja_id, motivo }                   Venerável (loja.config); acesso segue até o fim do período pago
+//   pix        { loja_id }                           qualquer irmão: cobrança em aberto (gera se preciso) com QR e copia e cola
+//   verificar  { loja_id, asaas_id }                 consulta o pagamento no Asaas e diz se a Loja já está liberada
 //   (dono) aplicar_regua {} · fatura_recebida { asaas_id, data? } · fatura_cancelar { asaas_id }
 import { admin, asaas, CORS, Falha, resposta, SUPABASE_URL, usuarioDe } from "../_shared/asaas.ts";
 import { aplicarRegua, credPlataforma, espelharFatura, EVENTOS_ASSINATURA, sincronizarFaturas } from "../_shared/plataforma.ts";
@@ -82,23 +84,19 @@ Deno.serve(async (req) => {
     if (!a) throw new Falha("Assinatura não encontrada.", 404);
     if (a.status === "vitalicia") throw new Falha("Esta Loja tem acesso vitalício, sem cobrança.");
 
-    if (corpo.acao === "assinar") {
-      if (!eu.pode_pagar) throw new Falha("Quem assina e paga é o Tesoureiro.", 403);
-      const ciclo = corpo.ciclo === "anual" ? "anual" : "mensal";
-      const forma = String(corpo.forma ?? "PIX");
-      const formas = String(eu.formas ?? "PIX,BOLETO").split(",");
+    // cria o cliente e a assinatura no Asaas da plataforma (ou atualiza plano e forma) e espelha as faturas
+    const garantirAssinatura = async (ciclo: "mensal" | "anual", forma: string) => {
+      const formas = String(eu.formas ?? "PIX").split(",");
       if (!formas.includes(forma)) throw new Falha("Forma de pagamento indisponível.");
       const valor = Number(ciclo === "anual" ? eu.preco_anual : eu.preco_mensal);
       const c = await credPlataforma();
-
       const { data: l } = await admin.from("lojas").select("nome, numero, cnpj").eq("id", loja).single();
       const { data: u } = await usuario.auth.getUser();
       const { data: ir } = await admin.from("irmaos").select("cpf, nome, telefone").eq("loja_id", loja).eq("user_id", u.user!.id).single();
-      const documento = String(l?.cnpj || ir?.cpf || "").replace(/\D/g, "");
-      if (documento.length !== 11 && documento.length !== 14) throw new Falha("Cadastre o CNPJ da Loja (Configurações) ou o seu CPF para emitir a cobrança.");
-
       let cliente = a.asaas_cliente_id as string | null;
       if (!cliente) {
+        const documento = String(l?.cnpj || ir?.cpf || "").replace(/\D/g, "");
+        if (documento.length !== 11 && documento.length !== 14) throw new Falha("Cadastre o CNPJ da Loja (Configurações) ou o seu CPF para emitir a cobrança.");
         const cl = await asaas(c, "/customers", { method: "POST", body: {
           name: `${String(l!.nome).trim()}${l!.numero ? ` nº ${l!.numero}` : ""}`, cpfCnpj: documento,
           email: u.user?.email, mobilePhone: ir?.telefone ?? undefined, externalReference: loja,
@@ -115,15 +113,49 @@ Deno.serve(async (req) => {
       if (sub) {
         await asaas(c, `/subscriptions/${sub}`, { method: "PUT", body: { ...corpoAss, updatePendingPayments: true } });
       } else {
-        const s = await asaas(c, "/subscriptions", { method: "POST", body: { ...corpoAss, customer: cliente, nextDueDate: inicio } });
-        sub = s.id as string;
+        const sNova = await asaas(c, "/subscriptions", { method: "POST", body: { ...corpoAss, customer: cliente, nextDueDate: inicio } });
+        sub = sNova.id as string;
       }
       const { error } = await admin.rpc("plataforma_registrar_assinatura", {
         p_loja: loja, p_ciclo: ciclo, p_valor: valor, p_forma: forma, p_cliente: cliente, p_assinatura: sub, p_proximo: inicio,
       });
       if (error) throw new Falha(error.message, 500);
       await sincronizarFaturas(c, sub!);
-      return resposta({ ok: true, primeiro_vencimento: inicio });
+      return { c, sub: sub!, inicio };
+    };
+
+    if (corpo.acao === "assinar") {
+      if (!eu.pode_pagar) throw new Falha("Quem escolhe o plano é o Tesoureiro.", 403);
+      const r = await garantirAssinatura(corpo.ciclo === "anual" ? "anual" : "mensal", String(corpo.forma ?? "PIX"));
+      return resposta({ ok: true, primeiro_vencimento: r.inicio });
+    }
+
+    // Regularizar agora (qualquer irmão da Loja): gera a cobrança se não houver e devolve o PIX (QR + copia e cola)
+    if (corpo.acao === "pix") {
+      let c = await credPlataforma();
+      if (!a.asaas_assinatura_id || a.status === "cancelada") {
+        c = (await garantirAssinatura(a.ciclo === "anual" ? "anual" : "mensal", "PIX")).c;
+      } else {
+        await sincronizarFaturas(c, a.asaas_assinatura_id);
+      }
+      const { data: f } = await admin.from("faturas_plataforma").select("asaas_id, valor, vencimento, status, forma")
+        .eq("loja_id", loja).in("status", ["pendente", "vencida"]).order("vencimento").limit(1).maybeSingle();
+      if (!f) throw new Falha("Não há cobrança em aberto para esta Loja.");
+      if (f.forma && f.forma !== "PIX") await asaas(c, `/payments/${f.asaas_id}`, { method: "PUT", body: { billingType: "PIX" } });
+      const qr = await asaas(c, `/payments/${f.asaas_id}/pixQrCode`);
+      return resposta({ ok: true, asaas_id: f.asaas_id, valor: Number(f.valor), vencimento: f.vencimento,
+        imagem: qr.encodedImage, copia_cola: qr.payload, expira: qr.expirationDate ?? null });
+    }
+
+    // a tela do PIX pergunta de tempos em tempos (o aviso do Asaas também destrava sozinho)
+    if (corpo.acao === "verificar") {
+      const id = String(corpo.asaas_id ?? "");
+      const { data: f } = await admin.from("faturas_plataforma").select("asaas_id").eq("loja_id", loja).eq("asaas_id", id).maybeSingle();
+      if (!f) throw new Falha("Cobrança não encontrada.", 404);
+      const pg = await asaas(await credPlataforma(), `/payments/${id}`);
+      const st = await espelharFatura(pg);
+      const { data: depois } = await usuario.rpc("minha_assinatura", { p_loja: loja });
+      return resposta({ ok: true, status: st, liberada: depois?.liberada ?? false });
     }
 
     if (corpo.acao === "faturas") {
