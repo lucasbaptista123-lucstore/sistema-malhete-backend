@@ -23,7 +23,7 @@ begin
   select count(*) into n from public.loja_cargos where loja_id = l1;
   r := r || format('cargos copiados=%s (esperado 22) | ', n);
 
-  insert into public.irmaos (loja_id, user_id, nome, grau) values (l1, b, 'Irmão B', 1) returning id into v_irmao_b;
+  insert into public.irmaos (loja_id, user_id, nome, grau, cim, data_iniciacao, cpf, email) values (l1, b, 'Irmão B', 1, 'T'||left(gen_random_uuid()::text,8), current_date - 400, '00000014060', 'i140x4186@teste.com') returning id into v_irmao_b;
   r := r || 'admin cadastra irmão=ok | ';
 
   -- ---- C cria a Loja 2
