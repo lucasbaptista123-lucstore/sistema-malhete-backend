@@ -21,7 +21,7 @@ begin
   set local role authenticated;
   l1 := public.criar_loja('Loja Teste 1', '1234', ori, rito, 'São Paulo', 'SP', 'Irmã A');
   select count(*) into n from public.loja_cargos where loja_id = l1;
-  r := r || format('cargos copiados=%s (esperado 22) | ', n);
+  r := r || format('cargos copiados=%s (esperado 24) | ', n);
 
   insert into public.irmaos (loja_id, user_id, nome, grau, cim, data_iniciacao, cpf, email) values (l1, b, 'Irmão B', 1, 'T'||left(gen_random_uuid()::text,8), current_date - 400, '00000014060', 'i140x4186@teste.com') returning id into v_irmao_b;
   r := r || 'admin cadastra irmão=ok | ';

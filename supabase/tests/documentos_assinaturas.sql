@@ -56,7 +56,9 @@ begin
   -- 4) Venerável aprova com os sugeridos
   perform set_config('request.jwt.claims', json_build_object('sub', vm, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  select jsonb_agg(jsonb_build_object('cargo_codigo', cargo_codigo, 'irmao_id', irmao_id) order by ordem) into j from public.assinantes_sugeridos(tp);
+  -- a fila é escolhida pelo Venerável (o padrão da regularidade mudou em 0081/0083; aqui uma fila explícita)
+  j := jsonb_build_array(jsonb_build_object('cargo_codigo', 'secretario', 'irmao_id', i_se),
+         jsonb_build_object('cargo_codigo', 'tesoureiro', 'irmao_id', i_te), jsonb_build_object('cargo_codigo', 'veneravel', 'irmao_id', i_vm));
   doc := public.decidir_pedido_documento(ped, true, null, j);
   perform public.definir_pdf_base(doc, l || '/documentos/' || doc || '/base.pdf');
   select string_agg(ordem || ':' || cargo_nome || '/' || status, ' ' order by ordem) into s from public.documento_assinaturas where documento_id = doc;
