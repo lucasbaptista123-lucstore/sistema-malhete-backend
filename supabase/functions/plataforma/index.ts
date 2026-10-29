@@ -3,7 +3,7 @@
 //   assinar    { loja_id, ciclo: mensal|anual, forma: PIX|BOLETO }   Tesoureiro (tesouraria.editar), mesmo com a Loja travada
 //   faturas    { loja_id }                           relê as cobranças no Asaas (Venerável ou Tesoureiro)
 //   cancelar   { loja_id, motivo }                   Venerável (loja.config); acesso segue até o fim do período pago
-//   pix        { loja_id }                           qualquer irmão: cobrança em aberto (gera se preciso) com QR e copia e cola
+//   pix        { loja_id }                           Venerável ou Tesoureiro: cobrança em aberto (gera se preciso) com QR e copia e cola
 //   verificar  { loja_id, asaas_id }                 consulta o pagamento no Asaas e diz se a Loja já está liberada
 //   (dono) aplicar_regua {} · fatura_recebida { asaas_id, data? } · fatura_cancelar { asaas_id }
 import { admin, asaas, CORS, Falha, resposta, SUPABASE_URL, usuarioDe } from "../_shared/asaas.ts";
@@ -132,6 +132,7 @@ Deno.serve(async (req) => {
 
     // Regularizar agora (qualquer irmão da Loja): gera a cobrança se não houver e devolve o PIX (QR + copia e cola)
     if (corpo.acao === "pix") {
+      if (!eu.ve_detalhes) throw new Falha("Só o Venerável e o Tesoureiro regularizam a assinatura.", 403);
       let c = await credPlataforma();
       if (!a.asaas_assinatura_id || a.status === "cancelada") {
         c = (await garantirAssinatura(a.ciclo === "anual" ? "anual" : "mensal", "PIX")).c;
@@ -141,7 +142,9 @@ Deno.serve(async (req) => {
       const { data: f } = await admin.from("faturas_plataforma").select("asaas_id, valor, vencimento, status, forma")
         .eq("loja_id", loja).in("status", ["pendente", "vencida"]).order("vencimento").limit(1).maybeSingle();
       if (!f) throw new Falha("Não há cobrança em aberto para esta Loja.");
-      if (f.forma && f.forma !== "PIX") await asaas(c, `/payments/${f.asaas_id}`, { method: "PUT", body: { billingType: "PIX" } });
+      if (f.forma && f.forma !== "PIX") {
+        await asaas(c, `/payments/${f.asaas_id}`, { method: "PUT", body: { billingType: "PIX", value: Number(f.valor), dueDate: f.vencimento } });
+      }
       const qr = await asaas(c, `/payments/${f.asaas_id}/pixQrCode`);
       return resposta({ ok: true, asaas_id: f.asaas_id, valor: Number(f.valor), vencimento: f.vencimento,
         imagem: qr.encodedImage, copia_cola: qr.payload, expira: qr.expirationDate ?? null });
@@ -149,6 +152,7 @@ Deno.serve(async (req) => {
 
     // a tela do PIX pergunta de tempos em tempos (o aviso do Asaas também destrava sozinho)
     if (corpo.acao === "verificar") {
+      if (!eu.ve_detalhes) throw new Falha("Sem acesso.", 403);
       const id = String(corpo.asaas_id ?? "");
       const { data: f } = await admin.from("faturas_plataforma").select("asaas_id").eq("loja_id", loja).eq("asaas_id", id).maybeSingle();
       if (!f) throw new Falha("Cobrança não encontrada.", 404);

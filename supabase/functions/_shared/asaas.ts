@@ -133,10 +133,17 @@ export async function enviarCobrancas(loja: string, c: Credencial, soIrmao?: str
       // não duplica se a cobrança já foi criada antes (ex.: queda no meio do envio)
       const ja = await asaas(c, `/payments?externalReference=${t.titulo_id}`);
       const pg = ja?.data?.find((p: Record<string, unknown>) => !p.deleted) ?? await asaas(c, "/payments", { method: "POST", body: {
-        customer: cliente, billingType: "UNDEFINED", value: Number(t.valor),
+        customer: cliente, billingType: "PIX", value: Number(t.valor),
         dueDate: String(t.vencimento) < hoje ? hoje : t.vencimento, description: t.descricao, externalReference: t.titulo_id,
         ...encargos,
       } });
+      // código PIX copia e cola: vai no aviso do WhatsApp (o irmão paga sem entrar no sistema)
+      try {
+        const qr = await asaas(c, `/payments/${pg.id}/pixQrCode`);
+        if (qr?.payload) pg.pix_copia_cola = qr.payload;
+      } catch (e) {
+        console.error("pix copia e cola", pg.id, e);
+      }
       const { error: e } = await admin.rpc("asaas_vincular", { p_loja: loja, p_titulo: t.titulo_id, p_irmao: t.irmao_id, p_cliente_id: cliente, p_pg: pg });
       if (e) throw new Error(e.message);
       enviadas++;

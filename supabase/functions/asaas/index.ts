@@ -9,7 +9,7 @@
 //   quitar_parcelas     { loja_id, grupo_id }                    o irmão junta as parcelas abertas numa conta só
 // Permissões do usuário são conferidas no banco com o JWT de quem chamou.
 import {
-  admin, asaas, CORS, credencial, enviarCobrancas, EVENTOS_WEBHOOK, exigir, Falha, iguais, registrarErro, resposta,
+  admin, asaas, CORS, credencial, enviarCobrancas, espelhar, EVENTOS_WEBHOOK, exigir, Falha, iguais, registrarErro, resposta,
   garantirEventosWebhook, sincronizarLoja, SUPABASE_URL, usuarioDe,
 } from "../_shared/asaas.ts";
 
@@ -51,8 +51,35 @@ Deno.serve(async (req) => {
       if (Number(t.valor_pago) > 0) return resposta({ ok: true, nada: true });
       const c = await credencial(loja);
       if (t.cancelado) await asaas(c, `/payments/${t.asaas_id}`, { method: "DELETE" });
-      else await asaas(c, `/payments/${t.asaas_id}`, { method: "POST", body: { value: Number(t.valor), dueDate: t.vencimento, description: t.descricao } });
+      else await asaas(c, `/payments/${t.asaas_id}`, { method: "PUT", body: { billingType: "PIX", value: Number(t.valor), dueDate: t.vencimento, description: t.descricao } });
       return resposta({ ok: true });
+    }
+
+    // ---- o irmão paga a cobrança DELE dentro do sistema: QR e copia e cola do PIX (nada de página do Asaas)
+    if (corpo.acao === "pix_titulo" || corpo.acao === "verificar_titulo") {
+      loja = String(corpo.loja_id ?? "");
+      if (!/^[0-9a-f-]{36}$/.test(loja)) throw new Falha("Loja inválida.");
+      const { data: eu } = await usuario.rpc("meu_irmao_id", { p_loja: loja });
+      const { data: t } = await admin.from("titulos").select("id, loja_id, irmao_id, asaas_id, asaas_forma, valor, valor_pago, vencimento, descricao, cancelado")
+        .eq("id", String(corpo.titulo_id ?? "")).eq("loja_id", loja).maybeSingle();
+      if (!t || !eu || t.irmao_id !== eu) throw new Falha("Esta cobrança não é sua.", 403);
+      if (!t.asaas_id) throw new Falha("Esta conta ainda não tem cobrança no Asaas. Use o PIX da Loja.");
+      const c = await credencial(loja);
+      if (corpo.acao === "verificar_titulo") {
+        const pg = await asaas(c, `/payments/${t.asaas_id}`);
+        await espelhar(loja, c, "VARREDURA", pg);
+        const { data: dep } = await admin.from("titulos").select("valor, valor_pago").eq("id", t.id).single();
+        return resposta({ ok: true, pago: Number(dep!.valor_pago) >= Number(dep!.valor) });
+      }
+      if (t.cancelado || Number(t.valor_pago) >= Number(t.valor)) throw new Falha("Esta conta já está quitada.");
+      const pg = await asaas(c, `/payments/${t.asaas_id}`);
+      if (pg.billingType !== "PIX") {
+        await asaas(c, `/payments/${t.asaas_id}`, { method: "PUT", body: { billingType: "PIX", value: pg.value, dueDate: pg.dueDate } });
+      }
+      const qr = await asaas(c, `/payments/${t.asaas_id}/pixQrCode`);
+      if (qr?.payload) await admin.from("titulos").update({ pix_copia_cola: qr.payload }).eq("id", t.id);
+      return resposta({ ok: true, valor: Number(pg.value), vencimento: pg.dueDate, descricao: t.descricao,
+        imagem: qr.encodedImage, copia_cola: qr.payload });
     }
 
     // ---- o próprio irmão (ex.: adiantou mensalidades): cria no Asaas só as cobranças DELE
