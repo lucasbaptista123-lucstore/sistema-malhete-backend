@@ -2,7 +2,7 @@
 // URL configurada ao conectar: …/functions/v1/whatsapp-webhook?loja=<id>&t=<token da loja>
 // Responde 200 na hora (recomendação da UazAPI) e processa em seguida: botões e textos dos irmãos
 // viram confirmação de presença, motivo ou justificativa, e o irmão recebe a resposta.
-import { admin, iguais, resposta } from "../_shared/asaas.ts";
+import { admin, asaas, credencial, iguais, resposta } from "../_shared/asaas.ts";
 import { credencialWhats, responder } from "../_shared/uazapi.ts";
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
@@ -35,6 +35,37 @@ async function processar(loja: string, corpo: Record<string, unknown>) {
   }
   const telefone = m.sender_pn || m.chatid || m.sender || "";
   if (!telefone) return;
+
+  // botões da cobrança: "Pagar com PIX" responde só com o código copia e cola; "Pagar pelo Malhete", com o link
+  if (m.buttonOrListid?.startsWith("pag:")) {
+    const [, opcao, tok] = m.buttonOrListid.split(":");
+    const { data: p } = await admin.rpc("whatsapp_pagamento", { p_loja: loja, p_telefone: telefone, p_token: tok ?? "" });
+    if (!p) return;
+    const destino = m.chatid || telefone;
+    const titulos = (p.titulos ?? []) as { id: string; asaas_id: string | null; pix: string | null; descricao: string; valor: number }[];
+    if (!titulos.length) return await responder(c, destino, "Esta cobrança já está paga. Obrigado, irmão!");
+    if (opcao === "app") return await responder(c, destino, `Pague pelo Malhete, em Minhas mensalidades (QR Code e PIX copia e cola):\n${p.link}`);
+    const codigos: string[] = [];
+    for (const t of titulos.slice(0, 3)) {
+      let pix = t.pix;
+      if (!pix && t.asaas_id) {
+        try {
+          const qr = await asaas(await credencial(loja), `/payments/${t.asaas_id}/pixQrCode`);
+          pix = qr?.payload ?? null;
+          if (pix) await admin.from("titulos").update({ pix_copia_cola: pix }).eq("id", t.id);
+        } catch (e) {
+          console.error("pix copia e cola", t.id, e);
+        }
+      }
+      if (pix) codigos.push(pix);
+    }
+    if (!codigos.length) return await responder(c, destino, `Não consegui gerar o PIX agora. Pague pelo Malhete:\n${p.link}`);
+    await responder(c, destino, codigos.length === 1
+      ? "Segue o PIX copia e cola na próxima mensagem. Toque e segure, copie e cole no app do banco. A baixa é automática."
+      : `São ${codigos.length} cobranças: cada PIX copia e cola vem numa mensagem. Toque e segure para copiar. A baixa é automática.`);
+    for (const cod of codigos) await responder(c, destino, cod);
+    return;
+  }
 
   const { data: texto } = m.buttonOrListid
     ? await admin.rpc("whatsapp_botao", { p_loja: loja, p_telefone: telefone, p_botao: m.buttonOrListid })

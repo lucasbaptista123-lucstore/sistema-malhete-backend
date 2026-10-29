@@ -74,12 +74,27 @@ Deno.serve(async (req) => {
       const { data: fila } = await admin.rpc("notificacoes_proximas", { p_por_loja: 4 });
       const creds = new Map<string, Credencial | null>();
       let enviados = 0, falhas = 0;
-      for (const n of (fila ?? []) as { id: string; loja_id: string; telefone: string; mensagem: string }[]) {
+      for (const n of (fila ?? []) as { id: string; loja_id: string; telefone: string; mensagem: string; botoes: string[] | null }[]) {
         if (!creds.has(n.loja_id)) creds.set(n.loja_id, await credencialWhats(n.loja_id));
         const c = creds.get(n.loja_id);
         if (!c) continue;
         try {
-          await uazapi("/send/text", { method: "POST", token: c.token, body: { number: numeroWhats(n.telefone), text: n.mensagem, linkPreview: true, delay: 1500 } });
+          if (n.botoes?.length) {
+            // cobrança: botões "Pagar com PIX" / "Pagar pelo Malhete" (como na convocação); se o servidor recusar, vai em texto com o link
+            try {
+              await uazapi("/send/menu", { method: "POST", token: c.token, body: {
+                number: numeroWhats(n.telefone), type: "button", text: n.mensagem, choices: n.botoes, footerText: "Sistema Malhete", delay: 1500,
+              } });
+            } catch (e) {
+              console.error("botões da cobrança", n.id, e);
+              const { data: link } = await admin.rpc("whatsapp_link_mensalidades");
+              await uazapi("/send/text", { method: "POST", token: c.token, body: {
+                number: numeroWhats(n.telefone), text: `${n.mensagem}\n\nPague com PIX pelo sistema: ${link ?? ""}`, linkPreview: true, delay: 1500,
+              } });
+            }
+          } else {
+            await uazapi("/send/text", { method: "POST", token: c.token, body: { number: numeroWhats(n.telefone), text: n.mensagem, linkPreview: true, delay: 1500 } });
+          }
           await admin.from("notificacoes").update({ status: "enviado", enviado_em: new Date().toISOString(), erro: null }).eq("id", n.id);
           enviados++;
           // o mesmo aviso no celular, para quem ativou as notificações
