@@ -5,3 +5,4 @@ app/
 supabase/.temp/
 .DS_Store
 configurar_oficial.sh
+configurar_uazapi.sh

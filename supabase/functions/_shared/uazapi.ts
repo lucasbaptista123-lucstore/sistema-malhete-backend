@@ -18,8 +18,9 @@ export async function uazapi(caminho: string, init: { method?: string; token?: s
   });
   const texto = await r.text();
   const json = texto ? (() => { try { return JSON.parse(texto); } catch { return { texto }; } })() : null;
-  if (r.status === 401) throw new Falha("O servidor de WhatsApp recusou o acesso desta loja.", 502);
-  if (!r.ok) throw new Falha(`WhatsApp: ${json?.error ?? json?.message ?? `erro ${r.status}`}`, 502);
+  // http: código devolvido pela UazAPI (401/404 = instância apagada lá, dá para recriar)
+  if (r.status === 401) throw Object.assign(new Falha("O servidor de WhatsApp recusou o acesso desta loja.", 502), { http: 401 });
+  if (!r.ok) throw Object.assign(new Falha(`WhatsApp: ${json?.error ?? json?.message ?? `erro ${r.status}`}`, 502), { http: r.status });
   return json;
 }
 

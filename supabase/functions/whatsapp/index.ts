@@ -157,20 +157,43 @@ Deno.serve(async (req) => {
     await exigirRpc(usuario, "whatsapp_pode_configurar", { p_loja: loja }, "Só o Venerável ou o Secretário conectam o WhatsApp da loja.");
 
     if (corpo.acao === "conectar") {
-      let c = await credencialWhats(loja);
-      if (!c) {
-        if (!temAdmin()) throw new Falha("O WhatsApp ainda não foi liberado para esta loja. Fale com o suporte do Sistema Malhete.");
-        const nova = await uazapi("/instance/create", { method: "POST", admin: true, body: { name: `malhete-${loja.slice(0, 8)}`, systemName: "Sistema Malhete" } });
-        if (!nova?.token) throw new Falha("Não foi possível criar o WhatsApp da loja.", 502);
-        await admin.rpc("whatsapp_salvar", { p_loja: loja, p_instancia: nova.name ?? `malhete-${loja.slice(0, 8)}`, p_token: nova.token });
-        c = await credencialWhats(loja);
+      // cria a instância na UazAPI (chave de administrador da plataforma) e guarda o token no cofre
+      const criarInstancia = async () => {
+        if (!temAdmin()) {
+          throw new Falha("Falta configurar a chave de administrador da UazAPI na plataforma para criar o WhatsApp da Loja.", 503);
+        }
+        const nome = `malhete-${loja.slice(0, 8)}-${Date.now().toString(36)}`;
+        const corpoNovo = { name: nome, systemName: "Sistema Malhete" };
+        let nova: Record<string, unknown> | null = null;
+        try {
+          nova = await uazapi("/instance/init", { method: "POST", admin: true, body: corpoNovo });
+        } catch (e) {
+          const http = (e as { http?: number }).http;
+          if (http !== 404 && http !== 405) throw e;
+          nova = await uazapi("/instance/create", { method: "POST", admin: true, body: corpoNovo });
+        }
+        const inst = (nova?.instance ?? {}) as Record<string, unknown>;
+        const token = (nova?.token ?? inst.token) as string | undefined;
+        if (!token) throw new Falha("Não foi possível criar o WhatsApp da loja.", 502);
+        await admin.rpc("whatsapp_salvar", { p_loja: loja, p_instancia: (nova?.name ?? inst.name ?? nome) as string, p_token: token });
+        return (await credencialWhats(loja))!;
+      };
+      let c = await credencialWhats(loja) ?? await criarInstancia();
+      let atual;
+      try {
+        atual = await atualizarStatus(loja, c);
+      } catch (e) {
+        // instância apagada na UazAPI (ex.: troca de aparelho): cria outra e segue
+        const http = (e as { http?: number }).http;
+        if (http !== 401 && http !== 404) throw e;
+        c = await criarInstancia();
+        atual = await atualizarStatus(loja, c);
       }
-      await configurarWebhook(loja, c!, SUPABASE_URL);
-      const atual = await atualizarStatus(loja, c!);
+      await configurarWebhook(loja, c, SUPABASE_URL);
       if (atual.status === "conectado") return resposta({ ok: true, ...atual });
-      await uazapi("/instance/connect", { method: "POST", token: c!.token, body: {} });
+      await uazapi("/instance/connect", { method: "POST", token: c.token, body: {} });
       await new Promise((r) => setTimeout(r, 1500));
-      return resposta({ ok: true, ...(await atualizarStatus(loja, c!)) });
+      return resposta({ ok: true, ...(await atualizarStatus(loja, c)) });
     }
 
     if (corpo.acao === "desconectar") {
