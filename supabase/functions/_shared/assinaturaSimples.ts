@@ -87,13 +87,26 @@ const latin = (s: string) => s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'
 /** Acrescenta ao PDF a página de registro (quem, quando, como, hash, código de verificação) e conclui o documento. */
 async function fecharDocumento(d: { id: string; tipo: string; numero: string; loja_id: string; codigo_verificacao: string }, base: Uint8Array, hashBase: string) {
   const [{ data: ass }, { data: loja }, { data: cfg }] = await Promise.all([
-    admin.from("documento_assinaturas").select("ordem, cargo_nome, nome_assinatura, cpf_assinatura, assinado_em, confirmado_via, ip, dispositivo").eq("documento_id", d.id).order("ordem"),
+    admin.from("documento_assinaturas").select("ordem, cargo_nome, nome_assinatura, cpf_assinatura, assinado_em, confirmado_via, ip, dispositivo, area").eq("documento_id", d.id).order("ordem"),
     admin.from("lojas").select("nome, numero").eq("id", d.loja_id).single(),
     admin.from("config_plataforma").select("valor").eq("chave", "app_url").maybeSingle(),
   ]);
   const doc = await PDFDocument.load(base);
   const f = await doc.embedFont(StandardFonts.Helvetica);
   const fb = await doc.embedFont(StandardFonts.HelveticaBold);
+  const fmtCurto = (iso: string) => new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
+  // como no gov.br: a assinatura aparece no espaço de cada cargo, logo acima da linha
+  const verde = rgb(0.05, 0.4, 0.25);
+  for (const a of (ass ?? []) as Record<string, unknown>[]) {
+    const ar = a.area as { pagina: number; x1: number; x2: number; y2: number } | null;
+    const pg = ar ? doc.getPages()[ar.pagina] : undefined;
+    if (!ar || !pg) continue;
+    const linhaY = ar.y2 - 68;
+    pg.drawRectangle({ x: ar.x1, y: linhaY + 4, width: Math.min(ar.x2 - ar.x1, 230), height: 36, borderColor: verde, borderWidth: 0.6, opacity: 0, borderOpacity: 0.8 });
+    pg.drawText(latin("Assinado eletronicamente"), { x: ar.x1 + 6, y: linhaY + 27, size: 8.5, font: fb, color: verde });
+    pg.drawText(latin(`${fmtCurto(String(a.assinado_em))} · ${a.confirmado_via === "whatsapp" ? "código no WhatsApp" : "senha pessoal"}`), { x: ar.x1 + 6, y: linhaY + 17, size: 7.5, font: f, color: verde });
+    pg.drawText(latin(`Verificação: ${d.codigo_verificacao}`), { x: ar.x1 + 6, y: linhaY + 8, size: 7, font: f, color: verde });
+  }
   const pag = doc.addPage([595.28, 841.89]);
   const tinta = rgb(0.08, 0.1, 0.2), cinza = rgb(0.4, 0.4, 0.45);
   let y = 790;
