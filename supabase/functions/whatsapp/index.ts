@@ -136,10 +136,16 @@ Deno.serve(async (req) => {
 
     // ---- disparo de um envio
     if (corpo.acao === "enviar") {
-      const { data: envio } = await admin.from("envios").select("id, loja_id, tipo, mensagem, canal, lote_externo").eq("id", String(corpo.envio_id ?? "")).maybeSingle();
+      const { data: envio } = await admin.from("envios").select("id, loja_id, tipo, mensagem, canal, lote_externo, sessao_id").eq("id", String(corpo.envio_id ?? "")).maybeSingle();
       if (!envio) throw new Falha("Envio não encontrado.");
-      const perms = envio.tipo === "convocacao" ? ["sessoes.convocar"] : envio.tipo === "justificativa" ? ["chancelaria.editar", "sessoes.convocar"] : ["comunicacao.enviar"];
-      if (!(await pode(usuario, envio.loja_id, perms))) throw new Falha("Sem permissão para este envio.", 403);
+      if (envio.tipo === "convocacao") {
+        // ordinária/magna: Venerável ou Chanceler; sessão de estudos: também quem tem sessoes.estudos (Vigilantes)
+        const { data: ok } = await usuario.rpc("pode_gerir_sessao", { p_sessao: envio.sessao_id });
+        if (ok !== true) throw new Falha("Sem permissão para este envio.", 403);
+      } else {
+        const perms = envio.tipo === "justificativa" ? ["chancelaria.editar", "sessoes.convocar"] : ["comunicacao.enviar"];
+        if (!(await pode(usuario, envio.loja_id, perms))) throw new Falha("Sem permissão para este envio.", 403);
+      }
       if (envio.canal !== "whatsapp") throw new Falha("Este envio não é pelo WhatsApp.");
       return resposta({ ok: true, ...(await disparar(envio)) });
     }
