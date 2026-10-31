@@ -1,7 +1,9 @@
 // Sistema Malhete: confere o PDF assinado no gov.br que o assinante devolveu e passa a vez ao próximo.
+//   codigo { assinatura_id } · assinar_simples { assinatura_id, aceite, codigo | senha }   assinatura simples (no sistema)
 //   conferir { assinatura_id, caminho }  caminho = <loja>/documentos/<doc>/envio-<assinatura>-<ts>.pdf (já no bucket secretaria)
 import { admin, CORS, Falha, resposta, usuarioDe } from "../_shared/asaas.ts";
 import { conferirPdf, type Selo } from "../_shared/pdfassinatura.ts";
+import { assinarSimples, enviarCodigo } from "../_shared/assinaturaSimples.ts";
 
 const BUCKET = "secretaria";
 // distância do centro do selo até o bloco de um assinante (0 = dentro)
@@ -22,8 +24,20 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   try {
     const corpo = await req.json().catch(() => ({}));
-    if (corpo.acao !== "conferir") throw new Falha("Ação desconhecida.");
     const usuario = usuarioDe(req.headers.get("Authorization") ?? "");
+    // assinatura simples (no sistema): código pelo WhatsApp da Loja ou senha
+    if (corpo.acao === "codigo" || corpo.acao === "assinar_simples") {
+      const ctx = {
+        usuario,
+        ip: (req.headers.get("x-forwarded-for") ?? "").split(",")[0]!.trim() || null,
+        dispositivo: req.headers.get("user-agent"),
+      };
+      const id = String(corpo.assinatura_id ?? "");
+      return resposta(corpo.acao === "codigo"
+        ? { ok: true, ...(await enviarCodigo(ctx, id)) }
+        : { ok: true, ...(await assinarSimples(ctx, id, corpo.codigo ? String(corpo.codigo) : null, corpo.senha ? String(corpo.senha) : null, corpo.aceite === true)) });
+    }
+    if (corpo.acao !== "conferir") throw new Falha("Ação desconhecida.");
     const idAss = String(corpo.assinatura_id ?? "");
     const caminho = String(corpo.caminho ?? "");
     if (!/^[0-9a-f-]{36}$/.test(idAss)) throw new Falha("Assinatura inválida.");
