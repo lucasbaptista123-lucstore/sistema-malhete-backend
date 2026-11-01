@@ -180,6 +180,12 @@ Deno.serve(async (req) => {
       const { data: antiga } = await admin.from("integracoes_asaas").select("webhook_id, ambiente").eq("loja_id", loja).maybeSingle();
       const { data: conta, error } = await usuario.rpc("asaas_conectar", { p_loja: loja, p_chave: chave, p_ambiente: ambiente, p_conta: corpo.conta_id ?? null });
       if (error) throw new Falha(error.message);
+      // primeira conexão: trazer o histórico (90 dias) ou começar a partir de hoje
+      if (!antiga) {
+        await admin.from("integracoes_asaas")
+          .update({ sincronizar_desde: corpo.historico === false ? new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10) : null })
+          .eq("loja_id", loja);
+      }
 
       // webhook: o Asaas avisa na hora cada cobrança criada, paga, alterada ou estornada
       let aviso: string | null = null;

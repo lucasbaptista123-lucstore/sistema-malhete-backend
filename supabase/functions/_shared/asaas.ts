@@ -163,6 +163,9 @@ export async function sincronizarLoja(loja: string, de?: string, ate?: string, s
     ? new Date(new Date(c.ultima_sincronizacao).getTime() - 5 * 864e5)
     : new Date(hoje.getTime() - 90 * 864e5);
   de = de && /^\d{4}-\d{2}-\d{2}$/.test(de) ? de : isoDia(inicio);
+  // a Loja escolheu "começar a partir de hoje" ao conectar: nada antes dessa data entra
+  const { data: integ } = await admin.from("integracoes_asaas").select("sincronizar_desde").eq("loja_id", loja).maybeSingle();
+  if (integ?.sincronizar_desde && de < integ.sincronizar_desde) de = integ.sincronizar_desde as string;
   ate = ate && /^\d{4}-\d{2}-\d{2}$/.test(ate) ? ate : isoDia(hoje);
 
   // 1) cobranças criadas ou pagas no período
@@ -196,7 +199,10 @@ export async function sincronizarLoja(loja: string, de?: string, ate?: string, s
 
   // 2b) toda saída (e entrada avulsa) do extrato vira lançamento; na 1ª vez, saldo inicial = saldo real do Asaas
   const { data: fim, error: eFim } = await admin.rpc("asaas_concluir_sincronizacao", {
-    p_loja: loja, p_saldo: ultima ? Number(ultima.balance) : null, p_primeira: !c.ultima_sincronizacao,
+    p_loja: loja,
+    // sem movimento no período (ex.: começou hoje): o saldo vem direto do Asaas
+    p_saldo: ultima ? Number(ultima.balance) : !c.ultima_sincronizacao ? Number((await asaas(c, "/finance/balance"))?.balance ?? 0) : null,
+    p_primeira: !c.ultima_sincronizacao,
   });
   if (eFim) throw new Error(eFim.message);
 
