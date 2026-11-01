@@ -84,7 +84,9 @@ begin
     from public.loja_cargos where loja_id = l1 and codigo = 'tesoureiro';
 
   reset role;
+  perform set_config('malhete.sistema', 'on', true);
   update public.irmaos set admin_loja = false where id = v_irmao_a;
+  perform set_config('malhete.sistema', 'off', true);
   set local role authenticated;
 
   r := r || format('tesoureira: tesouraria.editar=%s tesouraria.ler=%s cadastro.ler=%s cadastro.editar=%s loja.config=%s | ',

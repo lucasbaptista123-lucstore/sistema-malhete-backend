@@ -61,9 +61,9 @@ begin
   exception when others then r := r || 'Aprendiz usa tema de Mestre=bloqueado | ';
   end;
   begin
-    insert into public.mural (loja_id, titulo) values (l, 'X');
-    r := r || 'Aprendiz publica no mural=PERMITIU (ERRO)';
-  exception when others then r := r || 'Aprendiz publica no mural=bloqueado';
+    insert into public.mural (loja_id, titulo, grau_minimo) values (l, 'X', 3);
+    r := r || 'Aprendiz publica para Mestres=PERMITIU (ERRO)';
+  exception when others then r := r || 'Aprendiz publica para Mestres=bloqueado';
   end;
   reset role;
   raise exception 'RESULTADO: %', r;

@@ -19,7 +19,7 @@ begin
   insert into public.gestoes (loja_id, nome, inicio, fim) values (l, 'G', current_date - 1, current_date + 300) returning id into g;
   insert into public.mandatos (loja_id, gestao_id, irmao_id, cargo_id, inicio, fim)
     select l, g, v_a, id, current_date - 1, current_date + 300 from public.loja_cargos where loja_id = l and codigo = 'veneravel';
-  r := r || format('admin+Venerável sem Tesoureiro edita=%s (esperado t) | ', public.tem_permissao(l, 'tesouraria.editar'));
+  r := r || format('fundador Venerável sem Tesoureiro edita=%s (esperado f: com Venerável a implantação acaba) | ', public.tem_permissao(l, 'tesouraria.editar'));
   insert into public.mandatos (loja_id, gestao_id, irmao_id, cargo_id, inicio, fim)
     select l, g, v_t, id, current_date - 1, current_date + 300 from public.loja_cargos where loja_id = l and codigo = 'tesoureiro';
   r := r || format('Venerável/admin com Tesoureiro: edita=%s lê=%s tronco.editar=%s cargos.editar=%s (esperado f t f t) | ',

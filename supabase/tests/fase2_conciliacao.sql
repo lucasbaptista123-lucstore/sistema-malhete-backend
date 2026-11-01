@@ -39,7 +39,9 @@ begin
   insert into public.mandatos (loja_id, gestao_id, irmao_id, cargo_id, inicio, fim)
     select l1, v_gestao, v_irmao_a, id, current_date - 30, current_date + 300 from public.loja_cargos where loja_id = l1 and codigo = 'tesoureiro';
   reset role;
+  perform set_config('malhete.sistema', 'on', true);
   update public.irmaos set admin_loja = false where id = v_irmao_a;
+  perform set_config('malhete.sistema', 'off', true);
   set local role authenticated;
 
   -- contas a pagar/receber que o extrato vai quitar
