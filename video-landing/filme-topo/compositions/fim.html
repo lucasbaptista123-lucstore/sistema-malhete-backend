@@ -12,29 +12,31 @@
 .cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .cam img { display: block; width: 2880px; height: 1800px; }
 
-#fim-claim { position: absolute; left: 160px; top: 400px; font-size: 136px; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; }
+#fim-claim { position: absolute; left: 160px; top: 200px; font-size: 140px; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; }
 #fim-claim span { display: inline-block; }
-#fim-selo { position: absolute; left: 485px; top: 330px; width: 150px; height: 150px; border-radius: 32px; background: #1B2A5C; color: #D2B47D; }
-#fim-selo svg { position: absolute; left: 27px; top: 27px; width: 96px; height: 96px; }
-#fim-nome { position: absolute; left: 675px; top: 352px; font-family: "Cinzel Marca", serif; font-weight: 700; font-size: 84px; letter-spacing: 0.04em; white-space: nowrap; }
-#fim-botao { position: absolute; left: 485px; top: 560px; padding: 26px 40px; border-radius: 14px; background: #1B2A5C; color: #FFFFFF; font-size: 40px; font-weight: 700; white-space: nowrap; }
-#fim-nota { position: absolute; left: 915px; top: 586px; font-size: 32px; font-weight: 700; color: #5E6577; white-space: nowrap; }
+#fim-filete { position: absolute; left: 164px; top: 380px; width: 96px; height: 5px; background: #A7854B; }
+#fim-selo { position: absolute; left: 160px; top: 520px; width: 120px; height: 120px; border-radius: 26px; background: #1B2A5C; color: #D2B47D; }
+#fim-selo svg { position: absolute; left: 22px; top: 22px; width: 76px; height: 76px; }
+#fim-nome { position: absolute; left: 310px; top: 540px; font-family: "Cinzel Marca", serif; font-weight: 700; font-size: 72px; letter-spacing: 0.04em; white-space: nowrap; }
+#fim-botao { position: absolute; left: 160px; top: 712px; padding: 26px 40px; border-radius: 14px; background: #1B2A5C; color: #FFFFFF; font-size: 40px; font-weight: 700; white-space: nowrap; }
+#fim-nota { position: absolute; left: 640px; top: 738px; font-size: 34px; font-weight: 700; color: #5E6577; white-space: nowrap; }
 </style>
-  <div data-hf-id="hf-z2ju" id="root" data-composition-id="fim" data-width="1920" data-height="1080" data-duration="5.0">
-    <div data-hf-id="hf-aumo" id="fim-claim"><span data-hf-id="hf-4vpj" class="fim-p">A&nbsp;</span><span data-hf-id="hf-50j0" class="fim-p">Loja&nbsp;</span><span data-hf-id="hf-luv6" class="fim-p">em&nbsp;</span><span data-hf-id="hf-f6et" class="fim-p">ordem.&nbsp;</span></div>
-    <div data-hf-id="hf-hs4b" id="fim-selo"><svg data-hf-id="hf-zoun" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"><circle data-hf-id="hf-cj8c" cx="32" cy="9" r="3.5"/><path data-hf-id="hf-gwg7" d="M30 12 L15 50 M34 12 L49 50"/><path data-hf-id="hf-gdk2" d="M8 38 L32 58 L56 38"/></svg></div>
-    <div data-hf-id="hf-1bdj" id="fim-nome">Sistema Malhete</div>
-    <div data-hf-id="hf-yhtj" id="fim-botao">Cadastre sua Loja</div>
-    <div data-hf-id="hf-zuk0" id="fim-nota">30 dias grátis, sem cartão de crédito</div>
+  <div id="root" data-composition-id="fim" data-width="1920" data-height="1080" data-duration="4.2">
+    <div id="fim-claim"><span class="fim-p">A&nbsp;</span><span class="fim-p">Loja&nbsp;</span><span class="fim-p">em&nbsp;</span><span class="fim-p">ordem.&nbsp;</span></div>
+    <div id="fim-filete"></div>
+    <div id="fim-selo"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="9" r="3.5"/><path d="M30 12 L15 50 M34 12 L49 50"/><path d="M8 38 L32 58 L56 38"/></svg></div>
+    <div id="fim-nome">Sistema Malhete</div>
+    <div id="fim-botao">Cadastre sua Loja</div>
+    <div id="fim-nota">30 dias grátis, sem cartão de crédito</div>
   </div>
   <script>
     const tl = gsap.timeline({ paused: true });
     tl.fromTo(".fim-p", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.16, ease: "power4.out", stagger: 0.08 }, 0.15);
-    tl.fromTo("#fim-claim", { opacity: 1, filter: "blur(0px)" }, { opacity: 0, filter: "blur(10px)", duration: 0.22, ease: "power3.in" }, 1.95);
-    tl.fromTo("#fim-selo", { scale: 0.4, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(1.4)" }, 2.15);
-    tl.fromTo("#fim-nome", { clipPath: "inset(0% 100% 0% 0%)" }, { clipPath: "inset(0% 0% 0% 0%)", duration: 0.5, ease: "power3.out" }, 2.35);
-    tl.fromTo("#fim-botao", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 2.75);
-    tl.fromTo("#fim-nota", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 2.9);
+    tl.fromTo("#fim-filete", { scaleX: 0, transformOrigin: "0 50%" }, { scaleX: 1, duration: 0.45, ease: "expo.out" }, 0.55);
+    tl.fromTo("#fim-selo", { scale: 0.4, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(1.4)" }, 1.15);
+    tl.fromTo("#fim-nome", { clipPath: "inset(0% 100% 0% 0%)" }, { clipPath: "inset(0% 0% 0% 0%)", duration: 0.5, ease: "power3.out" }, 1.3);
+    tl.fromTo("#fim-botao", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 1.7);
+    tl.fromTo("#fim-nota", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 1.8);
     window.__timelines["fim"] = tl;
   </script>
 </template>
