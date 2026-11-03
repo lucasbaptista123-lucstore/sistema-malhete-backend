@@ -1,0 +1,39 @@
+<template>
+  <style>
+@font-face { font-family: "Atkinson Next"; src: url("assets/fonts/AtkinsonHyperlegibleNext-400.woff2") format("woff2"); font-weight: 400; }
+@font-face { font-family: "Atkinson Next"; src: url("assets/fonts/AtkinsonHyperlegibleNext-700.woff2") format("woff2"); font-weight: 700; }
+@font-face { font-family: "Atkinson Next"; src: url("assets/fonts/AtkinsonHyperlegibleNext-800.woff2") format("woff2"); font-weight: 800; }
+@font-face { font-family: "Cinzel Marca"; src: url("assets/fonts/Cinzel-700.woff2") format("woff2"); font-weight: 700; }
+#root { position: absolute; inset: 0; overflow: hidden; background: #F1F3F7; color: #1B2A5C; font-family: "Atkinson Next", sans-serif; }
+.titulo { position: absolute; left: 160px; top: 108px; font-size: 76px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.05; white-space: nowrap; }
+.titulo span { display: inline-block; }
+.filete { position: absolute; left: 160px; top: 206px; width: 72px; height: 4px; background: #A7854B; }
+.janela { position: absolute; left: 160px; top: 290px; width: 1600px; height: 640px; overflow: hidden; border-radius: 18px; border: 1px solid #DDE1E8; background: #F6F7FA; box-shadow: 0 30px 70px rgba(27,42,92,.16); }
+.cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.cam img { display: block; width: 2880px; height: 1800px; }
+
+#tes-rotulo { position: absolute; left: 1290px; top: 112px; font-size: 28px; font-weight: 700; color: #5E6577; white-space: nowrap; }
+#tes-valor { position: absolute; left: 1290px; top: 148px; font-size: 72px; font-weight: 800; letter-spacing: -0.015em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+</style>
+  <div data-hf-id="hf-8dp2" id="root" data-composition-id="tesouraria" data-width="1920" data-height="1080" data-duration="4.6">
+    <div data-hf-id="hf-35tm" id="tesouraria-titulo" class="titulo"><span data-hf-id="hf-mwul" class="tes-p">O&nbsp;</span><span data-hf-id="hf-y8jt" class="tes-p">PIX&nbsp;</span><span data-hf-id="hf-geyl" class="tes-p">cai,&nbsp;</span><span data-hf-id="hf-frc3" class="tes-p">a&nbsp;</span><span data-hf-id="hf-rc3j" class="tes-p">baixa&nbsp;</span><span data-hf-id="hf-tnp7" class="tes-p">é&nbsp;</span><span data-hf-id="hf-aiku" class="tes-p">sozinha.&nbsp;</span></div>
+    <div data-hf-id="hf-0mu6" id="tesouraria-filete" class="filete"></div>
+    <div data-hf-id="hf-czp2" id="tes-rotulo">Recebido em novembro</div>
+    <div data-hf-id="hf-hdt4" id="tes-valor">R$ 0,00</div>
+    <div data-hf-id="hf-i6nt" class="janela"><div data-hf-id="hf-jcrv" class="cam" id="tes-cam"><img data-hf-id="hf-jdzq" src="assets/telas/tes-mensalidades.png" alt="Grade de mensalidades com novembro pago"></div></div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo("#root > *", { x: 260, filter: "blur(12px)" }, { x: 0, filter: "blur(0px)", duration: 0.35, ease: "expo.out" }, 0);
+    tl.fromTo(".tes-p", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.16, ease: "power4.out", stagger: 0.08 }, 0.3);
+    tl.fromTo("#tesouraria-filete", { scaleX: 0, transformOrigin: "0 50%" }, { scaleX: 1, duration: 0.4, ease: "expo.out" }, 0.55);
+    tl.fromTo("#tes-cam", {'x': -2220.0, 'y': -1590.0, 'scale': 1.5}, { ...{'x': -494.76, 'y': -739.536, 'scale': 0.744}, duration: 1.3, ease: "power2.inOut" }, 1.0);
+    const valor = { v: 0 };
+    tl.fromTo(valor, { v: 0 }, { v: 900, duration: 1.1, ease: "expo.out", onUpdate: () => {
+      document.querySelector("#tes-valor").textContent = "R$ " + valor.v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } }, 0.9);
+    tl.fromTo("#tes-rotulo", { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "none" }, 0.8);
+    tl.to("#root > *", { y: -220, filter: "blur(12px)", duration: 0.3, ease: "power3.in" }, 4.28);
+    window.__timelines["tesouraria"] = tl;
+  </script>
+</template>

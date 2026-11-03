@@ -1,0 +1,54 @@
+<template>
+  <style>
+@font-face { font-family: "Atkinson Next"; src: url("assets/fonts/AtkinsonHyperlegibleNext-400.woff2") format("woff2"); font-weight: 400; }
+@font-face { font-family: "Atkinson Next"; src: url("assets/fonts/AtkinsonHyperlegibleNext-700.woff2") format("woff2"); font-weight: 700; }
+@font-face { font-family: "Atkinson Next"; src: url("assets/fonts/AtkinsonHyperlegibleNext-800.woff2") format("woff2"); font-weight: 800; }
+@font-face { font-family: "Cinzel Marca"; src: url("assets/fonts/Cinzel-700.woff2") format("woff2"); font-weight: 700; }
+#root { position: absolute; inset: 0; overflow: hidden; background: #F1F3F7; color: #1B2A5C; font-family: "Atkinson Next", sans-serif; }
+.titulo { position: absolute; left: 160px; top: 108px; font-size: 76px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.05; white-space: nowrap; }
+.titulo span { display: inline-block; }
+.filete { position: absolute; left: 160px; top: 206px; width: 72px; height: 4px; background: #A7854B; }
+.janela { position: absolute; left: 160px; top: 290px; width: 1600px; height: 640px; overflow: hidden; border-radius: 18px; border: 1px solid #DDE1E8; background: #F6F7FA; box-shadow: 0 30px 70px rgba(27,42,92,.16); }
+.cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.cam img { display: block; width: 2880px; height: 1800px; }
+
+#gancho-tela { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
+#gancho-cel { position: absolute; left: 230px; top: 70px; width: 540px; height: 1060px; border-radius: 70px; background: #0F1630; transform-origin: 270px 520px; }
+#gancho-vidro { position: absolute; left: 16px; top: 16px; right: 16px; bottom: 16px; border-radius: 56px; background: #F1F3F7; overflow: hidden; }
+#gancho-barra { position: absolute; left: 0; right: 0; top: 0; height: 120px; background: #F6F7FA; border-bottom: 1px solid #DDE1E8; }
+#gancho-barra b { position: absolute; left: 32px; top: 58px; font-size: 28px; font-weight: 800; }
+#gancho-antes, #gancho-depois { position: absolute; left: 20px; top: 300px; width: 468px; }
+#gancho-botao { position: absolute; left: 52px; top: 438px; width: 207px; height: 52px; border-radius: 12px; background: rgba(27,42,92,0); }
+#gancho-titulo { left: 980px; top: 430px; font-size: 96px; }
+#gancho-filete { left: 980px; top: 548px; }
+#gancho-sub { position: absolute; left: 980px; top: 590px; font-size: 34px; font-weight: 700; color: #5E6577; }
+#gancho-quadrado { position: absolute; left: 980px; top: 680px; width: 34px; height: 34px; background: #1B2A5C; }
+</style>
+  <div data-hf-id="hf-oi6y" id="root" data-composition-id="gancho" data-width="1920" data-height="1080" data-duration="3.6">
+    <div data-hf-id="hf-hqhc" id="gancho-tela">
+      <div data-hf-id="hf-4e3w" id="gancho-cel"><div data-hf-id="hf-nopo" id="gancho-vidro">
+        <div data-hf-id="hf-s9kw" id="gancho-barra"><b data-hf-id="hf-c223">Loja Demonstração nº 9999</b></div>
+        <img data-hf-id="hf-40n2" id="gancho-antes" src="assets/telas/convocacao-antes.png" alt="Convocação no celular: Sim, estarei presente">
+        <img data-hf-id="hf-payi" id="gancho-depois" src="assets/telas/convocacao-depois.png" alt="Presença confirmada">
+        <div data-hf-id="hf-ul3b" id="gancho-botao"></div>
+      </div></div>
+      <div data-hf-id="hf-5np3" id="gancho-titulo" class="titulo"><span data-hf-id="hf-rtma" class="gancho-p">Quinta&nbsp;</span><span data-hf-id="hf-cl7i" class="gancho-p">tem&nbsp;</span><span data-hf-id="hf-cj4a" class="gancho-p">sessão.&nbsp;</span></div>
+      <div data-hf-id="hf-rpfb" id="gancho-filete" class="filete"></div>
+      <div data-hf-id="hf-0x35" id="gancho-sub">Ir∴ Pedro responde pelo celular.</div>
+      <div data-hf-id="hf-5xc9" id="gancho-quadrado"></div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo("#gancho-cel", { scale: 1, y: 0 }, { scale: 1.45, y: -40, duration: 0.9, ease: "power2.inOut" }, 0.15);
+    tl.fromTo("#gancho-botao", { backgroundColor: "rgba(27,42,92,0)", scale: 1 }, { backgroundColor: "rgba(255,255,255,0.28)", scale: 0.94, duration: 0.1, ease: "power2.out", yoyo: true, repeat: 1 }, 1.25);
+    tl.fromTo("#gancho-antes", { opacity: 1 }, { opacity: 0, duration: 0.2, ease: "none" }, 1.42);
+    tl.fromTo("#gancho-depois", { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "none" }, 1.42);
+    tl.fromTo(".gancho-p", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.16, ease: "power4.out", stagger: 0.08 }, 1.55);
+    tl.fromTo("#gancho-filete", { scaleX: 0, transformOrigin: "0 50%" }, { scaleX: 1, duration: 0.4, ease: "expo.out" }, 1.85);
+    tl.fromTo("#gancho-sub", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 1.95);
+    tl.fromTo("#gancho-quadrado", { opacity: 0, scale: 0.3, x: 0, y: 0 }, { opacity: 1, scale: 1, duration: 0.25, ease: "expo.out" }, 2.75);
+    tl.to("#gancho-quadrado", { x: 1100, y: 0, filter: "blur(10px)", duration: 0.55, ease: "power3.in" }, 3.05);
+    window.__timelines["gancho"] = tl;
+  </script>
+</template>

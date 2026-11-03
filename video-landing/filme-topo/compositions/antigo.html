@@ -1,0 +1,39 @@
+<template>
+  <style>
+@font-face { font-family: "Atkinson Next"; src: url("assets/fonts/AtkinsonHyperlegibleNext-400.woff2") format("woff2"); font-weight: 400; }
+@font-face { font-family: "Atkinson Next"; src: url("assets/fonts/AtkinsonHyperlegibleNext-700.woff2") format("woff2"); font-weight: 700; }
+@font-face { font-family: "Atkinson Next"; src: url("assets/fonts/AtkinsonHyperlegibleNext-800.woff2") format("woff2"); font-weight: 800; }
+@font-face { font-family: "Cinzel Marca"; src: url("assets/fonts/Cinzel-700.woff2") format("woff2"); font-weight: 700; }
+#root { position: absolute; inset: 0; overflow: hidden; background: #F1F3F7; color: #1B2A5C; font-family: "Atkinson Next", sans-serif; }
+.titulo { position: absolute; left: 160px; top: 108px; font-size: 76px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.05; white-space: nowrap; }
+.titulo span { display: inline-block; }
+.filete { position: absolute; left: 160px; top: 206px; width: 72px; height: 4px; background: #A7854B; }
+.janela { position: absolute; left: 160px; top: 290px; width: 1600px; height: 640px; overflow: hidden; border-radius: 18px; border: 1px solid #DDE1E8; background: #F6F7FA; box-shadow: 0 30px 70px rgba(27,42,92,.16); }
+.cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.cam img { display: block; width: 2880px; height: 1800px; }
+#antigo-f0 { position: absolute; left: 160px; top: 170px; font-size: 58px; font-weight: 700; color: #8A90A0; white-space: nowrap; }
+#antigo-f1 { position: absolute; left: 820px; top: 300px; font-size: 58px; font-weight: 700; color: #8A90A0; white-space: nowrap; }
+#antigo-f2 { position: absolute; left: 260px; top: 450px; font-size: 58px; font-weight: 700; color: #8A90A0; white-space: nowrap; }
+#antigo-f3 { position: absolute; left: 760px; top: 600px; font-size: 58px; font-weight: 700; color: #8A90A0; white-space: nowrap; }
+#antigo-f4 { position: absolute; left: 200px; top: 760px; font-size: 58px; font-weight: 700; color: #8A90A0; white-space: nowrap; }
+#antigo-inunda { position: absolute; inset: 0; background: #1B2A5C; }
+</style>
+  <div data-hf-id="hf-1xhu" id="root" data-composition-id="antigo" data-width="1920" data-height="1080" data-duration="3.2">
+    <div data-hf-id="hf-2h5w" id="antigo-f0">Quem vai na quinta?</div>
+    <div data-hf-id="hf-i4ty" id="antigo-f1">Eu vou. Acho.</div>
+    <div data-hf-id="hf-0jch" id="antigo-f2">Quem pagou outubro?</div>
+    <div data-hf-id="hf-o4pj" id="antigo-f3">Cadê a ata da última sessão?</div>
+    <div data-hf-id="hf-g8rm" id="antigo-f4">A planilha parou em agosto.</div>
+    <div data-hf-id="hf-nmjl" id="antigo-inunda"></div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo("#antigo-f0", { opacity: 0, filter: "blur(8px)", rotation: -1.2 }, { opacity: 1, filter: "blur(0px)", rotation: -1.2, duration: 0.18, ease: "power4.out" }, 0.15);
+    tl.fromTo("#antigo-f1", { opacity: 0, filter: "blur(8px)", rotation: 1.4 }, { opacity: 1, filter: "blur(0px)", rotation: 1.4, duration: 0.18, ease: "power4.out" }, 0.53);
+    tl.fromTo("#antigo-f2", { opacity: 0, filter: "blur(8px)", rotation: 0.8 }, { opacity: 1, filter: "blur(0px)", rotation: 0.8, duration: 0.18, ease: "power4.out" }, 0.91);
+    tl.fromTo("#antigo-f3", { opacity: 0, filter: "blur(8px)", rotation: -1.6 }, { opacity: 1, filter: "blur(0px)", rotation: -1.6, duration: 0.18, ease: "power4.out" }, 1.29);
+    tl.fromTo("#antigo-f4", { opacity: 0, filter: "blur(8px)", rotation: 1.0 }, { opacity: 1, filter: "blur(0px)", rotation: 1.0, duration: 0.18, ease: "power4.out" }, 1.67);
+    tl.fromTo("#antigo-inunda", { clipPath: "inset(0% 100% 0% 0%)" }, { clipPath: "inset(0% 0% 0% 0%)", duration: 0.45, ease: "power2.inOut" }, 2.7);
+    window.__timelines["antigo"] = tl;
+  </script>
+</template>

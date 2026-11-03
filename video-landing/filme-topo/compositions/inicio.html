@@ -1,0 +1,25 @@
+<template>
+  <style>
+@font-face { font-family: "Atkinson Next"; src: url("assets/fonts/AtkinsonHyperlegibleNext-400.woff2") format("woff2"); font-weight: 400; }
+@font-face { font-family: "Atkinson Next"; src: url("assets/fonts/AtkinsonHyperlegibleNext-700.woff2") format("woff2"); font-weight: 700; }
+@font-face { font-family: "Atkinson Next"; src: url("assets/fonts/AtkinsonHyperlegibleNext-800.woff2") format("woff2"); font-weight: 800; }
+@font-face { font-family: "Cinzel Marca"; src: url("assets/fonts/Cinzel-700.woff2") format("woff2"); font-weight: 700; }
+#root { position: absolute; inset: 0; overflow: hidden; background: #F1F3F7; color: #1B2A5C; font-family: "Atkinson Next", sans-serif; }
+.titulo { position: absolute; left: 160px; top: 108px; font-size: 76px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.05; white-space: nowrap; }
+.titulo span { display: inline-block; }
+.filete { position: absolute; left: 160px; top: 206px; width: 72px; height: 4px; background: #A7854B; }
+.janela { position: absolute; left: 160px; top: 290px; width: 1600px; height: 640px; overflow: hidden; border-radius: 18px; border: 1px solid #DDE1E8; background: #F6F7FA; box-shadow: 0 30px 70px rgba(27,42,92,.16); }
+.cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.cam img { display: block; width: 2880px; height: 1800px; }
+
+#ini-quadro { position: absolute; inset: 0; overflow: hidden; }
+</style>
+  <div data-hf-id="hf-hngt" id="root" data-composition-id="inicio" data-width="1920" data-height="1080" data-duration="3.8">
+    <div data-hf-id="hf-x0m2" id="ini-quadro"><div data-hf-id="hf-1m1h" class="cam" id="ini-cam"><img data-hf-id="hf-yl2x" src="assets/telas/tes-inicio.png" alt="Início do Tesoureiro com tudo em dia"></div></div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo("#ini-cam", {'x': -1664.0, 'y': -988.0, 'scale': 2.6}, { ...{'x': 0.0, 'y': 0.0, 'scale': 0.6667}, duration: 1.6, ease: "power2.inOut" }, 0.55);
+    window.__timelines["inicio"] = tl;
+  </script>
+</template>

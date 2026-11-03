@@ -1,0 +1,31 @@
+<template>
+  <style>
+@font-face { font-family: "Atkinson Next"; src: url("assets/fonts/AtkinsonHyperlegibleNext-400.woff2") format("woff2"); font-weight: 400; }
+@font-face { font-family: "Atkinson Next"; src: url("assets/fonts/AtkinsonHyperlegibleNext-700.woff2") format("woff2"); font-weight: 700; }
+@font-face { font-family: "Atkinson Next"; src: url("assets/fonts/AtkinsonHyperlegibleNext-800.woff2") format("woff2"); font-weight: 800; }
+@font-face { font-family: "Cinzel Marca"; src: url("assets/fonts/Cinzel-700.woff2") format("woff2"); font-weight: 700; }
+#root { position: absolute; inset: 0; overflow: hidden; background: #F1F3F7; color: #1B2A5C; font-family: "Atkinson Next", sans-serif; }
+.titulo { position: absolute; left: 160px; top: 108px; font-size: 76px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.05; white-space: nowrap; }
+.titulo span { display: inline-block; }
+.filete { position: absolute; left: 160px; top: 206px; width: 72px; height: 4px; background: #A7854B; }
+.janela { position: absolute; left: 160px; top: 290px; width: 1600px; height: 640px; overflow: hidden; border-radius: 18px; border: 1px solid #DDE1E8; background: #F6F7FA; box-shadow: 0 30px 70px rgba(27,42,92,.16); }
+.cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.cam img { display: block; width: 2880px; height: 1800px; }
+
+#root { background: #1B2A5C; }
+#marca-selo { position: absolute; left: 520px; top: 444px; width: 192px; height: 192px; border-radius: 40px; background: #D2B47D; color: #1B2A5C; }
+#marca-selo svg { position: absolute; left: 34px; top: 34px; width: 124px; height: 124px; }
+#marca-nome { position: absolute; left: 760px; top: 470px; font-family: "Cinzel Marca", serif; font-weight: 700; font-size: 104px; letter-spacing: 0.04em; color: #FFFFFF; white-space: nowrap; }
+</style>
+  <div data-hf-id="hf-h8h3" id="root" data-composition-id="marca" data-width="1920" data-height="1080" data-duration="2.0">
+    <div data-hf-id="hf-ctrv" id="marca-selo"><svg data-hf-id="hf-zoun" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"><circle data-hf-id="hf-cj8c" cx="32" cy="9" r="3.5"/><path data-hf-id="hf-gwg7" d="M30 12 L15 50 M34 12 L49 50"/><path data-hf-id="hf-gdk2" d="M8 38 L32 58 L56 38"/></svg></div>
+    <div data-hf-id="hf-cwon" id="marca-nome">Sistema Malhete</div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo("#marca-selo", { scale: 0.4, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.55, ease: "back.out(1.4)" }, 0.05);
+    tl.fromTo("#marca-nome", { clipPath: "inset(0% 100% 0% 0%)" }, { clipPath: "inset(0% 0% 0% 0%)", duration: 0.55, ease: "power3.out" }, 0.35);
+    tl.fromTo(["#marca-selo", "#marca-nome"], { opacity: 1, filter: "blur(0px)" }, { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power3.in" }, 1.75);
+    window.__timelines["marca"] = tl;
+  </script>
+</template>
