@@ -196,6 +196,10 @@ export async function sincronizarLoja(loja: string, de?: string, ate?: string, s
     const pid = t.paymentId ? String(t.paymentId) : "";
     if (!pid || vistos.has(pid) || Number(t.value) <= 0) continue;
     vistos.add(pid);
+    // já conciliado aqui (à mão ou por outra conta): não espelha de novo, senão entra em dobro
+    const { data: ja } = await admin.from("extrato_itens").select("id").eq("loja_id", loja)
+      .eq("referencia_externa", pid).neq("situacao", "pendente").limit(1);
+    if (ja && ja.length) continue;
     const pg = await asaas(c, `/payments/${pid}`);
     if (pg?.id) {
       await espelhar(loja, c, "VARREDURA", pg, clientes);
