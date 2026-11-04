@@ -53,7 +53,7 @@ async function disparar(envio: Envio) {
 
   const lote = await uazapi("/sender/advanced", {
     method: "POST", token: c.token,
-    body: { delayMin: 8, delayMax: 20, info: `Malhete ${envio.tipo} ${envio.id}`, messages },
+    body: { delayMin: 30, delayMax: 45, info: `Malhete ${envio.tipo} ${envio.id}`, messages },
   });
   await admin.from("envio_destinatarios").update({ status: "enviado", enviado_em: new Date().toISOString() }).in("id", lista.map((d) => d.id));
   await admin.from("envios").update({ lote_externo: lote?.folder_id ?? null }).eq("id", envio.id);
@@ -71,10 +71,11 @@ Deno.serve(async (req) => {
     // ---- rotina (pg_cron a cada 2 min): envia os avisos da fila aos poucos, loja por loja
     if (corpo0.acao === "processar_fila") {
       if (!iguais(req.headers.get("x-cron-secret") ?? "", Deno.env.get("CRON_SECRET") ?? "")) throw new Falha("Não autorizado.", 401);
-      const { data: fila } = await admin.rpc("notificacoes_proximas", { p_por_loja: 4 });
+      const { data: fila } = await admin.rpc("notificacoes_proximas", { p_por_loja: 2 });
       const creds = new Map<string, Credencial | null>();
       let enviados = 0, falhas = 0;
-      for (const n of (fila ?? []) as { id: string; loja_id: string; telefone: string; mensagem: string; botoes: string[] | null }[]) {
+      const itens = (fila ?? []) as { id: string; loja_id: string; telefone: string; mensagem: string; botoes: string[] | null }[];
+      for (const [pos, n] of itens.entries()) {
         if (!creds.has(n.loja_id)) creds.set(n.loja_id, await credencialWhats(n.loja_id));
         const c = creds.get(n.loja_id);
         if (!c) continue;
@@ -109,8 +110,9 @@ Deno.serve(async (req) => {
           await admin.from("notificacoes").update({ status: "falhou", erro: e instanceof Error ? e.message : "erro" }).eq("id", n.id);
           falhas++;
         }
-        // intervalo entre mensagens da mesma loja (contra bloqueio)
-        await new Promise((r) => setTimeout(r, 4000 + Math.random() * 6000));
+        // intervalo entre mensagens da mesma loja (contra bloqueio): 30 a 45 s, pedido do Lucas
+        // (sem esperar depois da última: a rodada termina antes da próxima, que começa em 1 min)
+        if (pos < itens.length - 1) await new Promise((r) => setTimeout(r, 30000 + Math.random() * 15000));
       }
       return resposta({ ok: true, enviados, falhas });
     }
