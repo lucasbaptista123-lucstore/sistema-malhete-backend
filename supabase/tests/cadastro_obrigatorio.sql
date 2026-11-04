@@ -1,4 +1,4 @@
--- Cadastro obrigatório: nome completo, CPF válido, e-mail válido, CIM (ou pendente só p/ Aprendiz) e iniciação.
+-- Cadastro: nome completo, CIM (ou pendente só p/ Aprendiz) e iniciação obrigatórios; CPF e e-mail opcionais (0102), conferidos quando vêm.
 do $$ declare t uuid := gen_random_uuid(); l uuid; i uuid; r text := ''; s text; b boolean;
 begin
   insert into auth.users (id, email, aud, role, email_confirmed_at) values (t, 'co@t.com', 'authenticated', 'authenticated', now());
@@ -7,8 +7,13 @@ begin
   l := public.criar_loja('L', '1', (select id from public.orientes where uf = 'SP'), (select id from public.ritos where sigla = 'REAA'), 'X', 'SP', 'T');
   begin insert into public.irmaos (loja_id, nome, cpf, email, cim, data_iniciacao) values (l, 'José', '52998224725', 'j@x.com', 'C1', '2020-01-01');
     r := r || 'só primeiro nome=PERMITIU (ERRO) | '; exception when others then r := r || 'só primeiro nome=bloqueado | '; end;
-  begin insert into public.irmaos (loja_id, nome, email, cim, data_iniciacao) values (l, 'José Silva', 'j@x.com', 'C1', '2020-01-01');
-    r := r || 'sem CPF=PERMITIU (ERRO) | '; exception when others then r := r || 'sem CPF=bloqueado | '; end;
+  insert into public.irmaos (loja_id, nome, cim, data_iniciacao) values (l, 'Irmão do GOB', 'GOB1', '2015-03-01') returning id into i;
+  select array_to_string(faltando, ',') into s from public.diretorio(l) where id = i;
+  r := r || format('importado sem CPF e e-mail=ok, faltando=%s | ', s);
+  begin update public.irmaos set cpf = '123' where id = i; r := r || 'completa com CPF inválido=PERMITIU (ERRO) | ';
+  exception when others then r := r || 'completa com CPF inválido=bloqueado | '; end;
+  begin insert into public.irmaos (loja_id, nome, cpf, cim) values (l, 'Sem Iniciacao', '52998224725', 'C9');
+    r := r || 'sem iniciação=PERMITIU (ERRO) | '; exception when others then r := r || 'sem iniciação=bloqueado | '; end;
   begin insert into public.irmaos (loja_id, nome, cpf, email, cim, data_iniciacao) values (l, 'José Silva', '12345678900', 'j@x.com', 'C1', '2020-01-01');
     r := r || 'CPF inválido=PERMITIU (ERRO) | '; exception when others then r := r || 'CPF inválido=bloqueado | '; end;
   begin insert into public.irmaos (loja_id, nome, cpf, email, cim, data_iniciacao) values (l, 'José Silva', '52998224725', 'jose@', 'C1', '2020-01-01');
