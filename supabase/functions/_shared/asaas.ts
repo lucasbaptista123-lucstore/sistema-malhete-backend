@@ -190,6 +190,18 @@ export async function sincronizarLoja(loja: string, de?: string, ate?: string, s
       id_externo: t.id, data: t.date, valor: Number(t.value), descricao: (t.description as string) ?? t.type,
       tipo: t.type, referencia: t.paymentId ?? t.transferId ?? null,
     }));
+  // recebimento no extrato de cobrança que as listas não trouxeram (ex.: boleto pago ontem, creditado hoje):
+  // espelha agora, para virar conta a receber com baixa e não ficar pendente de conciliação à mão
+  for (const t of transacoes) {
+    const pid = t.paymentId ? String(t.paymentId) : "";
+    if (!pid || vistos.has(pid) || Number(t.value) <= 0) continue;
+    vistos.add(pid);
+    const pg = await asaas(c, `/payments/${pid}`);
+    if (pg?.id) {
+      await espelhar(loja, c, "VARREDURA", pg, clientes);
+      espelhadas++;
+    }
+  }
   const ultima = transacoes[transacoes.length - 1];
   const { data: ext, error } = await admin.rpc("asaas_importar_extrato", {
     p_loja: loja, p_itens: itens, p_arquivo: `Asaas ${de} a ${ate}`,
