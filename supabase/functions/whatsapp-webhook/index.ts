@@ -4,6 +4,7 @@
 // viram confirmação de presença, motivo ou justificativa, e o irmão recebe a resposta.
 import { admin, asaas, credencial, iguais, resposta } from "../_shared/asaas.ts";
 import { credencialWhats, responder } from "../_shared/uazapi.ts";
+import { pixCopiaECola } from "../_shared/pix.ts";
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
 
@@ -42,11 +43,20 @@ async function processar(loja: string, corpo: Record<string, unknown>) {
     const { data: p } = await admin.rpc("whatsapp_pagamento", { p_loja: loja, p_telefone: telefone, p_token: tok ?? "" });
     if (!p) return;
     const destino = m.chatid || telefone;
-    const titulos = (p.titulos ?? []) as { id: string; asaas_id: string | null; pix: string | null; descricao: string; valor: number }[];
+    const titulos = (p.titulos ?? []) as {
+      id: string; asaas_id: string | null; pix: string | null; descricao: string; valor: number; atualizado: number;
+    }[];
     if (!titulos.length) return await responder(c, destino, "Esta cobrança já está paga. Obrigado, irmão!");
-    if (opcao === "app") return await responder(c, destino, `Pague pelo Malhete, em Minhas mensalidades (QR Code e PIX copia e cola):\n${p.link}`);
+    // irmão que ainda não acessa o sistema (sem login): em vez do link, já manda o PIX
+    if (opcao === "app" && p.tem_acesso !== false) {
+      return await responder(c, destino, `Pague pelo Malhete, em Minhas mensalidades (QR Code e PIX copia e cola):\n${p.link}`);
+    }
     const codigos: string[] = [];
-    for (const t of titulos.slice(0, 3)) {
+    // sem cobrança no Asaas (irmão sem CPF): um copia e cola só, na chave da Loja, com o total atualizado;
+    // a baixa vem quando o PIX cai e o sistema reconhece quem pagou
+    const semAsaas = titulos.filter((t) => !t.asaas_id && !t.pix);
+    const totalSemAsaas = Math.round(semAsaas.reduce((s, t) => s + Number(t.atualizado ?? t.valor), 0) * 100) / 100;
+    for (const t of titulos.filter((x) => x.asaas_id || x.pix).slice(0, 3)) {
       let pix = t.pix;
       if (!pix && t.asaas_id) {
         try {
@@ -58,6 +68,11 @@ async function processar(loja: string, corpo: Record<string, unknown>) {
         }
       }
       if (pix) codigos.push(pix);
+    }
+    if (semAsaas.length && p.chave && totalSemAsaas > 0) {
+      codigos.push(pixCopiaECola({
+        chave: p.chave, nome: p.titular ?? "", cidade: p.cidade ?? "", valor: totalSemAsaas, txid: "***",
+      }));
     }
     if (!codigos.length) return await responder(c, destino, `Não consegui gerar o PIX agora. Pague pelo Malhete:\n${p.link}`);
     await responder(c, destino, codigos.length === 1
