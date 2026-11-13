@@ -3,7 +3,7 @@
 // Responde 200 na hora (recomendação da UazAPI) e processa em seguida: botões e textos dos irmãos
 // viram confirmação de presença, motivo ou justificativa, e o irmão recebe a resposta.
 import { admin, asaas, credencial, iguais, resposta } from "../_shared/asaas.ts";
-import { credencialWhats, responder } from "../_shared/uazapi.ts";
+import { credencialWhats, numeroWhats, responder, uazapi } from "../_shared/uazapi.ts";
 import { pixCopiaECola } from "../_shared/pix.ts";
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
@@ -79,6 +79,37 @@ async function processar(loja: string, corpo: Record<string, unknown>) {
       ? "Segue o PIX copia e cola na próxima mensagem. Toque e segure, copie e cole no app do banco. A baixa é automática."
       : `São ${codigos.length} cobranças: cada PIX copia e cola vem numa mensagem. Toque e segure para copiar. A baixa é automática.`);
     for (const cod of codigos) await responder(c, destino, cod);
+    return;
+  }
+
+  // Tronco da sessão: botão de valor manda o PIX copia e cola desse valor; "Outro valor" manda a página;
+  // "Já paguei" (Loja sem Asaas) avisa o Tesoureiro. Quem deu quanto não aparece para ninguém na Loja.
+  if (m.buttonOrListid?.startsWith("tronco:")) {
+    const [, opcao, tok] = m.buttonOrListid.split(":");
+    const { data: r } = await admin.rpc("whatsapp_tronco", {
+      p_loja: loja, p_telefone: telefone, p_token: tok ?? "", p_opcao: opcao ?? "",
+    });
+    if (!r) return;
+    const destino = m.chatid || telefone;
+    if (r.texto) return await responder(c, destino, r.texto);
+    if (r.link) return await responder(c, destino, `Escolha o valor nesta página e copie o PIX:\n${r.link}`);
+    if (!r.chave) return await responder(c, destino, "A Loja ainda não cadastrou a chave PIX do Tronco. Contribua no saco, na sessão.");
+    const valor = Number(r.valor);
+    const cod = pixCopiaECola({ chave: r.chave, nome: r.titular ?? "", cidade: r.cidade ?? "", valor, txid: "***" });
+    const reais = valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    await responder(c, destino, `Segue o PIX de ${reais} para o Tronco de Beneficência na próxima mensagem. Toque e segure, copie e cole no app do banco.`);
+    await responder(c, destino, cod);
+    // sem Asaas o sistema não vê o PIX cair: o irmão avisa e o Tesoureiro confere no extrato
+    if (!r.automatico) {
+      try {
+        await uazapi("/send/menu", { method: "POST", token: c.token, body: {
+          number: numeroWhats(telefone), type: "button", text: "Depois de pagar, toque abaixo para a Tesouraria conferir.",
+          choices: [`Já paguei|tronco:pago:${r.token}`], footerText: "Sistema Malhete", delay: 1500,
+        } });
+      } catch (e) {
+        console.error("tronco já paguei", e);
+      }
+    }
     return;
   }
 
