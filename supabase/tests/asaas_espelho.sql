@@ -15,6 +15,10 @@ begin
   insert into public.mandatos (loja_id, gestao_id, irmao_id, cargo_id, inicio, fim)
     select l, g, v_a, id, current_date - 1, current_date + 300 from public.loja_cargos where loja_id = l and codigo = 'tesoureiro';
   v_asaas := public.asaas_conectar(l, '$aact_hmlg_0000000000000000000000000000TESTE', 'sandbox');
+  -- desde 0123 a integração nasce sem criar cobrança (QR estático); este teste é do caminho com cobrança, que segue existindo
+  reset role;
+  update public.integracoes_asaas set criar_cobrancas = true where loja_id = l;
+  set local role authenticated;
   perform public.gerar_mensalidades(l, date_trunc('month', current_date)::date, 80, current_date + 5);
   select id into v_tit_b from public.titulos where irmao_id = v_b;
 

@@ -7,11 +7,15 @@
 //   sincronizar_todas   (rotina; cabeçalho x-cron-secret)
 //   tronco_pix          { loja_id, valor }                       o irmão gera um PIX do Tronco (lançado sozinho ao pagar)
 //   quitar_parcelas     { loja_id, grupo_id }                    o irmão junta as parcelas abertas numa conta só
+//   pix_titulos         { loja_id, titulos[] }                   o irmão paga contas DELE pelo QR estático do Asaas (valor do dia)
+//   cobrancas_do_sistema{ loja_id }                              cobranças que o sistema criou no Asaas e seguem abertas
+//   passar_para_qr      { loja_id }                              apaga essas cobranças no Asaas (as contas ficam abertas, pagas pelo QR)
 // Permissões do usuário são conferidas no banco com o JWT de quem chamou.
 import {
   admin, asaas, CORS, credencial, enviarCobrancas, espelhar, EVENTOS_WEBHOOK, exigir, Falha, iguais, registrarErro, resposta,
   garantirEventosWebhook, sincronizarLoja, SUPABASE_URL, usuarioDe,
 } from "../_shared/asaas.ts";
+import { qrTitulos } from "../_shared/tronco.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -80,6 +84,45 @@ Deno.serve(async (req) => {
       if (qr?.payload) await admin.from("titulos").update({ pix_copia_cola: qr.payload }).eq("id", t.id);
       return resposta({ ok: true, valor: Number(pg.value), vencimento: pg.dueDate, descricao: t.descricao,
         imagem: qr.encodedImage, copia_cola: qr.payload });
+    }
+
+    // ---- o irmão paga contas DELE sem cobrança no Asaas: QR estático feito pelo Asaas, com o valor do dia
+    if (corpo.acao === "pix_titulos") {
+      loja = String(corpo.loja_id ?? "");
+      if (!/^[0-9a-f-]{36}$/.test(loja)) throw new Falha("Loja inválida.");
+      const ids = (Array.isArray(corpo.titulos) ? corpo.titulos : []).map(String).filter((x: string) => /^[0-9a-f-]{36}$/.test(x));
+      if (!ids.length) throw new Falha("Escolha as contas.");
+      const { data: eu } = await usuario.rpc("meu_irmao_id", { p_loja: loja });
+      const { data: ts } = await admin.from("titulos").select("id, irmao_id").eq("loja_id", loja).in("id", ids);
+      if (!eu || !ts?.length || ts.some((t) => t.irmao_id !== eu)) throw new Falha("Estas contas não são suas.", 403);
+      const qr = await qrTitulos(loja, ids);
+      return resposta({ ok: true, copia_cola: qr?.payload ?? null, valor: qr?.valor ?? null });
+    }
+
+    // ---- Tesouraria: cobranças que o PRÓPRIO SISTEMA criou no Asaas e seguem abertas passam para o QR estático.
+    // A conta é solta antes (o aviso de "removida" do Asaas é ignorado e ela não é cancelada aqui); se o Asaas recusar
+    // apagar (ex.: já paga), volta como estava. Cobranças que vieram de fora e as já confirmadas não entram.
+    if (corpo.acao === "cobrancas_do_sistema" || corpo.acao === "passar_para_qr") {
+      loja = String(corpo.loja_id ?? "");
+      if (!/^[0-9a-f-]{36}$/.test(loja)) throw new Falha("Loja inválida.");
+      await exigir(usuario, loja, "tesouraria.editar");
+      const { data: lista } = await admin.rpc("asaas_cobrancas_do_sistema", { p_loja: loja });
+      const itens = (lista ?? []) as { titulo: string; asaas_id: string; descricao: string; irmao: string; valor: number }[];
+      if (corpo.acao === "cobrancas_do_sistema") return resposta({ ok: true, lista: itens });
+      const { data: u } = await usuario.auth.getUser();
+      const c = await credencial(loja);
+      const resultado: Record<string, unknown>[] = [];
+      for (const t of itens) {
+        await admin.rpc("asaas_soltar_cobranca", { p_titulo: t.titulo, p_usuario: u.user?.id ?? null });
+        try {
+          await asaas(c, `/payments/${t.asaas_id}`, { method: "DELETE" });
+          resultado.push({ ...t, ok: true });
+        } catch (e) {
+          await admin.rpc("asaas_soltar_cobranca", { p_titulo: t.titulo, p_usuario: null, p_desfazer: t.asaas_id });
+          resultado.push({ ...t, ok: false, erro: e instanceof Error ? e.message : "erro" });
+        }
+      }
+      return resposta({ ok: true, resultado });
     }
 
     // ---- o próprio irmão (ex.: adiantou mensalidades): cria no Asaas só as cobranças DELE

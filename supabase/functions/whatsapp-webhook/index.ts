@@ -5,7 +5,7 @@
 import { admin, asaas, credencial, iguais, resposta } from "../_shared/asaas.ts";
 import { credencialWhats, numeroWhats, responder, uazapi, type Credencial } from "../_shared/uazapi.ts";
 import { pixCopiaECola } from "../_shared/pix.ts";
-import { qrTronco } from "../_shared/tronco.ts";
+import { qrTitulos, qrTronco } from "../_shared/tronco.ts";
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
 
@@ -71,7 +71,15 @@ async function processar(loja: string, corpo: Record<string, unknown>) {
       if (pix) codigos.push(pix);
     }
     if (semAsaas.length && p.chave && totalSemAsaas > 0) {
-      codigos.push(pixCopiaECola({
+      // com Asaas, um QR estático feito por ele (sem taxa, baixa sozinha); sem Asaas, o código na chave da Loja
+      let qr: { payload: string } | null = null;
+      try {
+        qr = await qrTitulos(loja, semAsaas.map((t) => t.id));
+      } catch (e) {
+        console.error("pix das contas pelo Asaas", e);
+        return await responder(c, destino, "Não consegui gerar o PIX agora. Tente de novo em alguns minutos, por favor.");
+      }
+      codigos.push(qr?.payload ?? pixCopiaECola({
         chave: p.chave, nome: p.titular ?? "", cidade: p.cidade ?? "", valor: totalSemAsaas, txid: "***",
       }));
     }
