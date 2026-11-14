@@ -1,7 +1,7 @@
 -- Tronco sem contar duas vezes (0119, 13/11): PIX do Tronco que o Asaas não reconheceu (pago da conta da esposa).
 -- A) "Confirmar no Tronco" usa o "PIX recebido" que já entrou: estorno + Tronco anônimo na mesma conta, conta
 --    automática cancelada, contribuição confirmada, nada na conta Tronco, saldo do Asaas igual ao PIX (50).
--- B) Sem PIX no Asaas, confirma lançando na conta Tronco (como antes).
+-- B) Com Asaas e sem o PIX, não confirma (0120); sem Asaas, lança na conta Tronco (como antes).
 -- C) Movimentações → "É do Tronco" num PIX sem dono e sem contribuição: vira Tronco; irmão sem cargo não consegue.
 do $$ declare
   t uuid := gen_random_uuid(); u uuid := gen_random_uuid(); l uuid; cx uuid; ctr uuid; ia uuid; c50 uuid; c20 uuid;
@@ -55,14 +55,26 @@ begin
   select sum(valor) into soma from public.lancamentos where loja_id = l and documento = 'pay_E';
   if soma <> 50 then raise exception 'FALHOU A: saldo do PIX = %', soma; end if;
 
-  -- B
+  -- B) com Asaas e sem o PIX: não confirma (0120); sem Asaas: lança na conta Tronco
+  perform set_config('request.jwt.claims', json_build_object('sub', t, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  begin
+    perform public.decidir_tronco(c20, true);
+    raise exception 'FALHOU B: confirmou sem PIX no Asaas';
+  exception when others then
+    if sqlerrm like 'FALHOU%' then raise; end if;
+    if sqlerrm not like 'Não achei um PIX de R$ 20,00 no Asaas%' then raise exception 'FALHOU B mensagem: %', sqlerrm; end if;
+  end;
+  reset role;
+  update public.integracoes_asaas set ativo = false where loja_id = l;
   perform set_config('request.jwt.claims', json_build_object('sub', t, 'role', 'authenticated')::text, true);
   set local role authenticated;
   perform public.decidir_tronco(c20, true);
   reset role;
+  update public.integracoes_asaas set ativo = true where loja_id = l;
   if not exists (select 1 from public.lancamentos x join public.tronco_contribuicoes c on c.lancamento_id = x.id
                  where c.id = c20 and x.conta_id = ctr and x.valor = 20) then
-    raise exception 'FALHOU B: sem PIX no Asaas não lançou na conta Tronco';
+    raise exception 'FALHOU B: sem Asaas não lançou na conta Tronco';
   end if;
 
   -- C
