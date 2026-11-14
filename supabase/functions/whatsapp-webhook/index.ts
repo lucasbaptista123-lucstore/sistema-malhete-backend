@@ -5,6 +5,7 @@
 import { admin, asaas, credencial, iguais, resposta } from "../_shared/asaas.ts";
 import { credencialWhats, numeroWhats, responder, uazapi, type Credencial } from "../_shared/uazapi.ts";
 import { pixCopiaECola } from "../_shared/pix.ts";
+import { qrTronco } from "../_shared/tronco.ts";
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
 
@@ -122,7 +123,7 @@ async function enviarCodigoPix(c: Credencial, telefone: string, destino: string,
 
 type RespostaTronco = {
   texto?: string; link?: string; chave?: string | null; titular?: string | null; cidade?: string | null;
-  valor?: number; token?: string; automatico?: boolean;
+  valor?: number; token?: string; automatico?: boolean; contrib_id?: string; pix_copia_cola?: string | null;
 };
 
 /**
@@ -135,7 +136,17 @@ async function responderTronco(c: Credencial, telefone: string, destino: string,
   if (r.link) return await responder(c, destino, `Escolha o valor nesta página e copie o PIX:\n${r.link}`);
   if (!r.chave) return await responder(c, destino, "A Loja ainda não cadastrou a chave PIX do Tronco. Contribua no saco, na sessão.");
   const valor = Number(r.valor);
-  const cod = pixCopiaECola({ chave: r.chave, nome: r.titular ?? "", cidade: r.cidade ?? "", valor, txid: "***" });
+  // com Asaas, o código vem do próprio Asaas (ele recusa código montado fora); sem Asaas, o sistema monta
+  let cod: string | null = null;
+  if (r.automatico && r.contrib_id) {
+    try {
+      cod = r.pix_copia_cola ?? (await qrTronco(r.contrib_id));
+    } catch (e) {
+      console.error("tronco qr asaas", e);
+    }
+    if (!cod) return await responder(c, destino, "Não consegui gerar o PIX agora. Tente de novo em alguns minutos, por favor.");
+  }
+  cod ??= pixCopiaECola({ chave: r.chave, nome: r.titular ?? "", cidade: r.cidade ?? "", valor, txid: "***" });
   const reais = valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const texto = `Tronco de Beneficência: ${reais}\n\nToque em Copiar código PIX, abra o app do seu banco e escolha PIX copia e cola.` +
     (r.automatico ? " A Tesouraria recebe a confirmação sozinha." : "");
