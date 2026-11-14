@@ -3,6 +3,7 @@
 --    automática cancelada, contribuição confirmada, nada na conta Tronco, saldo do Asaas igual ao PIX (50).
 -- B) Com Asaas e sem o PIX, não confirma (0120); sem Asaas, lança na conta Tronco (como antes).
 -- C) Movimentações → "É do Tronco" num PIX sem dono e sem contribuição: vira Tronco; irmão sem cargo não consegue.
+-- D) PIX de irmão identificado pelo CPF (conta automática com o nome dele): "É do Tronco" aceita e apaga o nome (0122).
 do $$ declare
   t uuid := gen_random_uuid(); u uuid := gen_random_uuid(); l uuid; cx uuid; ctr uuid; ia uuid; c50 uuid; c20 uuid;
   lp uuid; lp3 uuid; novo uuid; auto uuid; soma numeric; n int;
@@ -110,6 +111,34 @@ begin
     if sqlerrm like 'FALHOU%' then raise; end if;
   end;
   reset role;
+
+  -- D) irmão identificado pelo CPF paga o Tronco digitando a chave (sessão de 13/11): "É do Tronco" aceita e apaga o nome
+  declare ic uuid; ld uuid; aut uuid; begin
+    perform set_config('malhete.sistema', 'on', true);
+    insert into public.irmaos (loja_id, nome, grau, cim, data_iniciacao, situacao, cpf) values
+      (l, 'Carlos Com Cpf', 3, '9', '2020-01-01', 'ativo', '11144477735') returning id into ic;
+    perform set_config('malhete.sistema', 'off', true);
+    perform set_config('request.jwt.claims', '', true);
+    perform public.asaas_espelhar_pagamento(l, 'PAYMENT_RECEIVED',
+      jsonb_build_object('id', 'pay_D', 'value', 130, 'netValue', 130, 'status', 'RECEIVED', 'billingType', 'PIX',
+        'paymentDate', current_date, 'dueDate', current_date, 'description', 'Cobrança gerada automaticamente a partir de Pix recebido.'),
+      jsonb_build_object('id', 'cus_D', 'name', 'Carlos Com Cpf', 'cpfCnpj', '111.444.777-35'));
+    select x.id, x.titulo_id into ld, aut from public.lancamentos x where x.loja_id = l and x.documento = 'pay_D' and x.estorno_de is null;
+    if (select irmao_id from public.titulos where id = aut) is distinct from ic then raise exception 'FALHOU D preparo: conta automática sem o irmão'; end if;
+    perform set_config('request.jwt.claims', json_build_object('sub', t, 'role', 'authenticated')::text, true);
+    set local role authenticated;
+    perform public.tronco_e_do_tronco(ld);
+    reset role;
+    if (select count(*) from public.lancamentos x join public.categorias_financeiras k on k.id = x.categoria_id
+        where x.loja_id = l and x.documento = 'pay_D' and k.codigo = 'tronco' and x.estorno_de is null) <> 1 then
+      raise exception 'FALHOU D: não virou Tronco';
+    end if;
+    if exists (select 1 from public.lancamentos where loja_id = l and documento = 'pay_D' and (irmao_id is not null or favorecido_id is not null))
+       or (select irmao_id from public.titulos where id = aut) is not null then
+      raise exception 'FALHOU D: ficou o nome do irmão';
+    end if;
+    if (select sum(valor) from public.lancamentos where loja_id = l and documento = 'pay_D') <> 130 then raise exception 'FALHOU D: saldo'; end if;
+  end;
 
   raise exception 'OK: Tronco sem contar duas vezes (Confirmar usa o PIX do Asaas; É do Tronco; sem Asaas lança na conta Tronco)';
 end $$;
