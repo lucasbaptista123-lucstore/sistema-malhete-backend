@@ -1,10 +1,11 @@
 do $$
 declare a uuid := gen_random_uuid(); b uuid := gen_random_uuid(); x uuid := gen_random_uuid(); l uuid; r text := ''; n int;
 begin
-  insert into auth.users (id, email, aud, role, email_confirmed_at) values
-    (a,'a@t.com','authenticated','authenticated',now()),
-    (b,'Irmao.B@t.com','authenticated','authenticated',now()),
-    (x,'irmao.x@t.com','authenticated','authenticated',null);
+  -- 0128: só liga quem recebeu a confirmação e clicou depois (B); X nunca confirmou
+  insert into auth.users (id, email, aud, role, email_confirmed_at, confirmation_sent_at) values
+    (a,'a@t.com','authenticated','authenticated',now(),null),
+    (b,'Irmao.B@t.com','authenticated','authenticated',now(),now() - interval '5 minutes'),
+    (x,'irmao.x@t.com','authenticated','authenticated',null,now());
   perform set_config('request.jwt.claims', json_build_object('sub', a, 'role', 'authenticated')::text, true);
   set local role authenticated;
   l := public.criar_loja('L','1',(select id from public.orientes where uf='SP'),(select id from public.ritos where sigla='REAA'),'X','SP','A');
