@@ -63,6 +63,57 @@ export async function configurarWebhook(loja: string, c: Credencial, supabaseUrl
   });
 }
 
+// Texto do botão de link pelo destino (o WhatsApp corta botão com mais de 20 letras).
+const ROTULOS: [RegExp, string][] = [
+  [/\/convite\//, "Acessar o sistema"],
+  [/\/tronco\//, "Escolher o valor"],
+  [/\/app\/assinaturas/, "Assinar"],
+  [/\/app\/mensalidades/, "Pagar pelo sistema"],
+  [/\/app\/trabalhos\/novo/, "Enviar o trabalho"],
+  [/\/app\/(trabalhos|vigilancia)/, "Abrir o trabalho"],
+  [/\/app\/chancelaria\/justificativas/, "Ver justificativas"],
+  [/\/app\/chancelaria\/sessoes/, "Abrir a sessão"],
+  [/\/app\/agenda/, "Ver na agenda"],
+  [/\/app\/atas/, "Ler a ata"],
+];
+
+/**
+ * Mensagem que termina num link vira texto + botão (25/11, pedido do Lucas: o link solto chegava num cartão feio,
+ * com o endereço exposto). A última linha com o link sai do texto: "Avalie em: https://..." some e vira o botão
+ * "Abrir o trabalho"; link sozinho na linha leva junto os dois-pontos da frase de cima.
+ */
+export function linkEmBotao(msg: string): { texto: string; botao: string } | null {
+  const linhas = msg.replace(/\s+$/, "").split("\n");
+  const m = linhas[linhas.length - 1].match(/^(.*?)\s*(https?:\/\/\S+)$/);
+  if (!m) return null;
+  const url = m[2];
+  linhas.pop();
+  if (!m[1].trim() && linhas.length && /:\s*$/.test(linhas[linhas.length - 1])) {
+    linhas[linhas.length - 1] = linhas[linhas.length - 1].replace(/\s*:\s*$/, ".");
+  }
+  const texto = linhas.join("\n").replace(/\s+$/, "");
+  if (!texto) return null;
+  const rotulo = ROTULOS.find(([re]) => re.test(url))?.[1] ?? "Abrir no sistema";
+  return { texto, botao: `${rotulo}|${url}` };
+}
+
+/** Envia um texto; se terminar num link, o link vai num botão. Sem botão (servidor recusou), texto sem prévia. */
+export async function enviarTexto(c: Credencial, numero: string, texto: string, delay = 1200, lerConversa = false) {
+  const lb = linkEmBotao(texto);
+  if (lb) {
+    try {
+      await uazapi("/send/menu", { method: "POST", token: c.token, body: {
+        number: numero, type: "button", text: lb.texto, choices: [lb.botao], footerText: "Sistema Malhete", delay,
+      } });
+      return;
+    } catch (e) {
+      console.error("botão de link", e);
+    }
+  }
+  await uazapi("/send/text", { method: "POST", token: c.token, body: { number: numero, text: texto, linkPreview: false, delay, readchat: lerConversa } });
+}
+
+/** Resposta a quem escreveu (marca a conversa como lida, como antes). */
 export async function responder(c: Credencial, numero: string, texto: string) {
-  await uazapi("/send/text", { method: "POST", token: c.token, body: { number: numero, text: texto, delay: 1200, readchat: true } });
+  await enviarTexto(c, numero, texto, 1200, true);
 }

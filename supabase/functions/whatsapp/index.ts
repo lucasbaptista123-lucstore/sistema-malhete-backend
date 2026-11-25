@@ -7,7 +7,7 @@
 // Permissões conferidas no banco com o JWT de quem chamou.
 import { admin, CORS, Falha, iguais, resposta, SUPABASE_URL, usuarioDe } from "../_shared/asaas.ts";
 import { enviarPush, usuarioDoIrmao } from "../_shared/push.ts";
-import { atualizarStatus, configurarWebhook, credencialWhats, numeroWhats, temAdmin, uazapi, type Credencial } from "../_shared/uazapi.ts";
+import { atualizarStatus, configurarWebhook, credencialWhats, enviarTexto, linkEmBotao, numeroWhats, temAdmin, uazapi, type Credencial } from "../_shared/uazapi.ts";
 
 async function exigirRpc(usuario: ReturnType<typeof usuarioDe>, fn: string, args: Record<string, unknown>, msg: string) {
   const { data, error } = await usuario.rpc(fn, args);
@@ -81,20 +81,26 @@ Deno.serve(async (req) => {
         if (!c) continue;
         try {
           if (n.botoes?.length) {
-            // cobrança: botões "Pagar com PIX" / "Pagar pelo Malhete" (como na convocação); se o servidor recusar, vai em texto com o link
+            // botões de resposta (cobrança "Pagar com PIX" / "Pagar pelo Malhete", justificativa "Aceitar" / "Não aceitar"):
+            // o link do fim do texto sai (botão de resposta e de link juntos não abrem no WhatsApp Web);
+            // se o servidor recusar os botões, vai o texto inteiro, com o link, sem prévia
+            const semLink = linkEmBotao(n.mensagem)?.texto ?? n.mensagem;
             try {
               await uazapi("/send/menu", { method: "POST", token: c.token, body: {
-                number: numeroWhats(n.telefone), type: "button", text: n.mensagem, choices: n.botoes, footerText: "Sistema Malhete", delay: 1500,
+                number: numeroWhats(n.telefone), type: "button", text: semLink, choices: n.botoes, footerText: "Sistema Malhete", delay: 1500,
               } });
             } catch (e) {
-              console.error("botões da cobrança", n.id, e);
-              const { data: link } = await admin.rpc("whatsapp_link_mensalidades");
-              await uazapi("/send/text", { method: "POST", token: c.token, body: {
-                number: numeroWhats(n.telefone), text: `${n.mensagem}\n\nPague com PIX pelo sistema: ${link ?? ""}`, linkPreview: true, delay: 1500,
-              } });
+              console.error("botões da fila", n.id, e);
+              let texto = n.mensagem;
+              if (n.botoes.some((b) => b.includes("|pag:"))) {
+                const { data: link } = await admin.rpc("whatsapp_link_mensalidades");
+                texto = `${n.mensagem}\n\nPague com PIX pelo sistema: ${link ?? ""}`;
+              }
+              await uazapi("/send/text", { method: "POST", token: c.token, body: { number: numeroWhats(n.telefone), text: texto, linkPreview: false, delay: 1500 } });
             }
           } else {
-            await uazapi("/send/text", { method: "POST", token: c.token, body: { number: numeroWhats(n.telefone), text: n.mensagem, linkPreview: true, delay: 1500 } });
+            // link no fim vira o botão (convite: "Acessar o sistema"), sem o cartão de prévia
+            await enviarTexto(c, numeroWhats(n.telefone), n.mensagem, 1500);
           }
           await admin.from("notificacoes").update({ status: "enviado", enviado_em: new Date().toISOString(), erro: null }).eq("id", n.id);
           enviados++;
