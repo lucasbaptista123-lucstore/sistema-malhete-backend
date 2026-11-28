@@ -115,18 +115,26 @@ async function processar(loja: string, corpo: Record<string, unknown>) {
   if (typeof texto === "string" && texto) await responder(c, m.chatid || telefone, texto);
 }
 
-/** PIX copia e cola num botão "Copiar código PIX"; se o servidor recusar o botão, vai em texto (como antes). */
+/**
+ * PIX copia e cola num botão "Copiar código PIX" E, logo depois, o código sozinho numa mensagem de texto.
+ * 28/11 (sessão de 27/11): em vários celulares o botão chega apagado e o irmão não consegue copiar; acabava pagando
+ * digitando a chave. Com o código também em texto, quem não consegue usar o botão segura a mensagem e copia.
+ */
 async function enviarCodigoPix(c: Credencial, telefone: string, destino: string, texto: string, cod: string) {
+  const reserva = "Se o botão aparecer apagado, segure a mensagem de baixo, toque em Copiar e cole no app do banco.";
   try {
     await uazapi("/send/menu", { method: "POST", token: c.token, body: {
-      number: numeroWhats(telefone), type: "button", text: texto,
+      number: numeroWhats(telefone), type: "button", text: `${texto}\n\n${reserva}`,
       choices: [`Copiar código PIX|copy:${cod}`], footerText: "Sistema Malhete", delay: 1200,
     } });
   } catch (e) {
     console.error("botão copiar PIX", e);
-    await responder(c, destino, texto.replace(/Toque em Copiar código PIX/, "Segure a próxima mensagem, copie"));
-    await responder(c, destino, cod);
+    await responder(c, destino, texto.replace(/Toque em Copiar código PIX/, "Segure a próxima mensagem, toque em Copiar"));
   }
+  // o código vai sempre sozinho, sem prévia e sem passar pelo "link vira botão", para copiar inteiro
+  await uazapi("/send/text", { method: "POST", token: c.token, body: {
+    number: numeroWhats(telefone), text: cod, linkPreview: false, delay: 1500,
+  } });
 }
 
 type RespostaTronco = {

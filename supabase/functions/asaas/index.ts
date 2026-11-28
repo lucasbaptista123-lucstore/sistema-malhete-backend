@@ -77,10 +77,20 @@ Deno.serve(async (req) => {
       }
       if (t.cancelado || Number(t.valor_pago) >= Number(t.valor)) throw new Falha("Esta conta já está quitada.");
       const pg = await asaas(c, `/payments/${t.asaas_id}`);
-      if (pg.billingType !== "PIX") {
-        await asaas(c, `/payments/${t.asaas_id}`, { method: "PUT", body: { billingType: "PIX", value: pg.value, dueDate: pg.dueDate } });
+      // 28/11: o QR vem direto da cobrança (boleto e "pergunte ao cliente" também têm PIX). Trocar a forma para PIX
+      // só se o Asaas não der o QR, e nunca em parcela: o Asaas recusa ("cobranças pertencentes a um parcelamento"),
+      // e era isso que travava a Parcela 5 de 5 da Captação (João Paulo, Renan, Claudio) no "Pagar com PIX".
+      let qr: { payload?: string; encodedImage?: string } | null = null;
+      try {
+        qr = await asaas(c, `/payments/${t.asaas_id}/pixQrCode`);
+      } catch (_) {
+        qr = null;
       }
-      const qr = await asaas(c, `/payments/${t.asaas_id}/pixQrCode`);
+      if (!qr?.payload && pg.billingType !== "PIX" && !pg.installment) {
+        await asaas(c, `/payments/${t.asaas_id}`, { method: "PUT", body: { billingType: "PIX", value: pg.value, dueDate: pg.dueDate } });
+        qr = await asaas(c, `/payments/${t.asaas_id}/pixQrCode`);
+      }
+      if (!qr?.payload) throw new Falha("O Asaas não liberou o PIX desta conta agora. Avise o Tesoureiro, por favor.");
       if (qr?.payload) await admin.from("titulos").update({ pix_copia_cola: qr.payload }).eq("id", t.id);
       return resposta({ ok: true, valor: Number(pg.value), vencimento: pg.dueDate, descricao: t.descricao,
         imagem: qr.encodedImage, copia_cola: qr.payload });
